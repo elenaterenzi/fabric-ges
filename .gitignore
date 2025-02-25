@@ -514,4 +514,4 @@ __azurite_db_queue_extent__.json
 _scratch/*
 
 # This sample
-fabric-branch.cfg
+fabric-branch-cfg.psd1
