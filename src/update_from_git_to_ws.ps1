@@ -300,7 +300,7 @@ try {
     Write-Host "Loading environment file..."
     get-content ../config/.env | ForEach-Object {
         $name, $value = $_.split('=')
-        $value = $value.split('#')[0].trim()
+        $value = $value.split('#')[0].trim() # to support commented env files
         set-content env:\$name $value
     }
 
