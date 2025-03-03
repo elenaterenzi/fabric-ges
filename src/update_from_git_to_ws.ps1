@@ -296,50 +296,59 @@ function longRunningOperationPolling($uri, $retryAfter){
 }
 
 try {
-    # TODO: consider removing the logicalId from the file as it's not used today.
-    Write-Host "this task is running Powershell version " $PSVersionTable.PSVersion
-    Write-Host "the folder we are working on is $folder"
-    Write-Host "Updating workspace items for workspace $workspaceName"
 
-    $itemConfigFileName = "item-config.json"
-    $itemMetadataFileName = "item-metadata.json"
-    $itemDefinitionFileName = "item-definition.json"
-
-    $authHeader = "Bearer $($fabricToken)"
-    $requestHeader = @{
-    Authorization = $authHeader
-    }
-    $contentType = "application/json"
-
-    # 1. Check if a workspace with given name already exists, if not create a new one
-    $workspaceId = getorCreateWorkspaceId $requestHeader $contentType $baseUrl $workspaceName $capacityId
-
-    # 2. For every Fabric item on the branch, check if they exist in the workspace
-    # first get a list of all items in the workspace
-    $workspaceItems = getWorkspaceItems $requestHeader $contentType $baseUrl $workspaceId
-    $repoItems = @() # keep track of found object ids (either from creation or config files) and remove all other object ids from the workspace
-    # if they exist update them else create new ones
-    $dir = Get-ChildItem -Path $folder -Recurse -Directory
-    foreach ($d in $dir) { 
-        Write-Host $d.FullName
-        $repoItems = createOrUpdateWorkspaceItem $requestHeader $contentType $baseUrl $workspaceId $workspaceItems $d.FullName $repoItems
+    Write-Host "Loading environment file..."
+    get-content config/.env | ForEach-Object {
+        $name, $value = $_.split('=')
+        set-content env:\$name $value
     }
 
-    # 3. for items that are in the workspace but not in the repository (hence no folder), we need to delete them from the workspace
-    # use $repoItems to keep track of found object ids (either from creation or config files) and remove all other object ids from the workspace
-    foreach ($item in $workspaceItems){
-        if ($item.id -notin $repoItems -and $item.type -notin @("SQLEndpoint", "SemanticModel")){ # SemanticModel and SQL Endpoint items should not be deleted
-            Write-Host "Item $($item.id) $($item.displayName) is in the workspace but not in the repository, deleting." -ForegroundColor Yellow
-            $params = @{
-                Uri = "$($baseUrl)/workspaces/$($workspaceId)/items/$($item.id)"
-                Method = "DELETE"
-                Headers = $requestHeader
-                ContentType = $contentType
-            }
-            Invoke-RestMethod @params
-        }
-    }
-    Write-Host "Script execution completed successfully. Workspace items have been updated for workspace $workspaceName." -ForegroundColor Green
+    Write-Host "Fabric REST API endpoint is $env:FABRIC_API_BASEURL"
+
+    # # TODO: consider removing the logicalId from the file as it's not used today.
+    # Write-Host "this task is running Powershell version " $PSVersionTable.PSVersion
+    # Write-Host "the folder we are working on is $folder"
+    # Write-Host "Updating workspace items for workspace $workspaceName"
+
+    # $itemConfigFileName = "item-config.json"
+    # $itemMetadataFileName = "item-metadata.json"
+    # $itemDefinitionFileName = "item-definition.json"
+
+    # $authHeader = "Bearer $($fabricToken)"
+    # $requestHeader = @{
+    # Authorization = $authHeader
+    # }
+    # $contentType = "application/json"
+
+    # # 1. Check if a workspace with given name already exists, if not create a new one
+    # $workspaceId = getorCreateWorkspaceId $requestHeader $contentType $baseUrl $workspaceName $capacityId
+
+    # # 2. For every Fabric item on the branch, check if they exist in the workspace
+    # # first get a list of all items in the workspace
+    # $workspaceItems = getWorkspaceItems $requestHeader $contentType $baseUrl $workspaceId
+    # $repoItems = @() # keep track of found object ids (either from creation or config files) and remove all other object ids from the workspace
+    # # if they exist update them else create new ones
+    # $dir = Get-ChildItem -Path $folder -Recurse -Directory
+    # foreach ($d in $dir) { 
+    #     Write-Host $d.FullName
+    #     $repoItems = createOrUpdateWorkspaceItem $requestHeader $contentType $baseUrl $workspaceId $workspaceItems $d.FullName $repoItems
+    # }
+
+    # # 3. for items that are in the workspace but not in the repository (hence no folder), we need to delete them from the workspace
+    # # use $repoItems to keep track of found object ids (either from creation or config files) and remove all other object ids from the workspace
+    # foreach ($item in $workspaceItems){
+    #     if ($item.id -notin $repoItems -and $item.type -notin @("SQLEndpoint", "SemanticModel")){ # SemanticModel and SQL Endpoint items should not be deleted
+    #         Write-Host "Item $($item.id) $($item.displayName) is in the workspace but not in the repository, deleting." -ForegroundColor Yellow
+    #         $params = @{
+    #             Uri = "$($baseUrl)/workspaces/$($workspaceId)/items/$($item.id)"
+    #             Method = "DELETE"
+    #             Headers = $requestHeader
+    #             ContentType = $contentType
+    #         }
+    #         Invoke-RestMethod @params
+    #     }
+    # }
+    # Write-Host "Script execution completed successfully. Workspace items have been updated for workspace $workspaceName." -ForegroundColor Green
 }
 catch {
     $errorResponse = GetErrorResponse($_)
