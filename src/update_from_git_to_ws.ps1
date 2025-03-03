@@ -314,10 +314,10 @@ try {
     Write-Host "Updating workspace items for workspace $workspaceName"
 
     loadEnvironmentVariables
-    $baseUrl=$FABRIC_API_BASEURL
-    $fabricToken=$FABRIC_USER_TOKEN
-    $capacityId=$FABRIC_CAPACITY_ID
-    $folder=$ITEMS_FOLDER
+    $baseUrl=$env:FABRIC_API_BASEURL
+    $fabricToken=$env:FABRIC_USER_TOKEN
+    $capacityId=$env:FABRIC_CAPACITY_ID
+    $folder=$env:ITEMS_FOLDER
 
     $itemConfigFileName = "item-config.json"
     $itemMetadataFileName = "item-metadata.json"
