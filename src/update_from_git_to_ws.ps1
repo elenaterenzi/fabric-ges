@@ -1,11 +1,11 @@
 param
 (
-    [parameter(Mandatory = $false)] [String] $baseUrl,
-    [parameter(Mandatory = $false)] [String] $fabricToken,
+    # [parameter(Mandatory = $false)] [String] $baseUrl,
+    # [parameter(Mandatory = $false)] [String] $fabricToken,
     [parameter(Mandatory = $true)] [String] $workspaceName,      # The name of the workspace,
-    [parameter(Mandatory = $false)] [String] $capacityId,         # The capacity id of the workspace,
-    [parameter(Mandatory = $false)] [String] $folder,             # The folder where the workspace items are located on the branch, should be: Join-Path $(Build.SourcesDirectory) $(directory_name)
-    [parameter(Mandatory = $false)] [bool] $resetConfig=$false   # Used when the developer wants to reset the config files in the workspace (typically when a new feature branch is created)
+    # [parameter(Mandatory = $false)] [String] $capacityId,         # The capacity id of the workspace,
+    # [parameter(Mandatory = $false)] [String] $folder,             # The folder where the workspace items are located on the branch, should be: Join-Path $(Build.SourcesDirectory) $(directory_name)
+    # [parameter(Mandatory = $false)] [bool] $resetConfig=$false   # Used when the developer wants to reset the config files in the workspace (typically when a new feature branch is created)
 )
 ## FROM GIT TO WORKSPACE
 # Used when the developer creates a new branch from the development/main branch
@@ -314,10 +314,10 @@ try {
     Write-Host "Updating workspace items for workspace $workspaceName"
 
     loadEnvironmentVariables
-    baseUrl=$FABRIC_API_BASEURL
-    fabricToken=$FABRIC_USER_TOKEN
-    capacityId=$FABRIC_CAPACITY_ID
-    folder=$ITEMS_FOLDER
+    $baseUrl=$FABRIC_API_BASEURL
+    $fabricToken=$FABRIC_USER_TOKEN
+    $capacityId=$FABRIC_CAPACITY_ID
+    $folder=$ITEMS_FOLDER
 
     $itemConfigFileName = "item-config.json"
     $itemMetadataFileName = "item-metadata.json"
