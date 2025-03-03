@@ -1,0 +1,6 @@
+# Environment variables of this sample
+TENANT_ID="<tenant-id>" # Your Entra Tenant ID, used to authenticate and grab a user token
+ITEMS_FOLDER="<local-fabric-item-defs-folder>" # the folder name (existing) where Fabric item files will be stored
+FABRIC_API_BASEURL="https://api.fabric.microsoft.com/v1" # the base URL of the Fabric APIs
+FABRIC_USER_TOKEN="<fabric-token>" # the Fabric user token used to authenticate against the Fabric APIs
+FABRIC_CAPACITY_ID="<capacity-id>" # the capacity id (existing) of the capacity where the Fabric item will be created

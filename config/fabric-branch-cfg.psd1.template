@@ -1,0 +1,12 @@
+@{
+    workspaceName = "<ws-connected-to-branch>" # the workspace name connected to the dev branch. If it doesn't exist, it will be created
+    workspaceId = "<workspace-id>" # the workspace id (existing) of the workspace where Fabric items will be created
+    workspaceItems = @(
+        @{
+            name = "<name-of-fabric-item>" # the name of the Fabric item
+            type = "<type-of-fabric-item>" # the type of the Fabric item
+            description = "<description-of-fabric-item>" # the description of the Fabric item
+            id = "<id-of-fabric-item>" # the id of the Fabric item
+        }
+    )
+}

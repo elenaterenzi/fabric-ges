@@ -64,6 +64,15 @@ function getorCreateWorkspaceId($requestHeader, $contentType, $baseUrl, $workspa
     }
 }
 
+function getWorkspaceItems($requestHeader, $contentType, $baseUrl, $workspaceId){
+    $params = @{
+        Uri = "$($baseUrl)/workspaces/$($workspaceId)/items"
+        Method = "GET"
+        Headers = $requestHeader
+        ContentType = $contentType
+    }
+    return (Invoke-RestMethod @params).value
+}
 function createWorkspaceItem($baseUrl, $workspaceId, $requestHeader, $contentType, $itemMetadata, $itemDefinition){
     if ($itemDefinition)
     {
@@ -307,13 +316,7 @@ try {
 
     # 2. For every Fabric item on the branch, check if they exist in the workspace
     # first get a list of all items in the workspace
-    $params = @{
-        Uri = "$($baseUrl)/workspaces/$($workspaceId)/items"
-        Method = "GET"
-        Headers = $requestHeader
-        ContentType = $contentType
-    }
-    $workspaceItems = (Invoke-RestMethod @params).value
+    $workspaceItems = getWorkspaceItems $requestHeader $contentType $baseUrl $workspaceId
     $repoItems = @() # keep track of found object ids (either from creation or config files) and remove all other object ids from the workspace
     # if they exist update them else create new ones
     $dir = Get-ChildItem -Path $folder -Recurse -Directory
