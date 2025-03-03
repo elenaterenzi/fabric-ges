@@ -298,7 +298,7 @@ function longRunningOperationPolling($uri, $retryAfter){
 try {
 
     Write-Host "Loading environment file..."
-    get-content config/.env | ForEach-Object {
+    get-content ../config/.env | ForEach-Object {
         $name, $value = $_.split('=')
         set-content env:\$name $value
     }
