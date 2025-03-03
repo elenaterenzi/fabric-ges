@@ -220,46 +220,55 @@ function longRunningOperationPolling($uri, $retryAfter){
 
 
 try {
-    Write-Host "this task is running Powershell version " $PSVersionTable.PSVersion
-    Write-Host "the folder we are working on is $folder"
-    Write-Host "Updating workspace items for workspace $workspaceName"
 
-    $itemConfigFileName = "item-config.json"
-    $itemMetadataFileName = "item-metadata.json"
-    $itemDefinitionFileName = "item-definition.json"
-
-    $authHeader = "Bearer $($fabricToken)"
-    $requestHeader = @{
-    Authorization = $authHeader
-    }
-    $contentType = "application/json"
-
-    # 1. Check if a workspace with given name already exists, if not create a new one
-    $workspaceId = getWorkspaceId $requestHeader $contentType $baseUrl $workspaceName
-
-    # get workspace items
-    # 2. For every item on the branch, check if they exist in the workspace
-    # first get a list of all items in the workspace
-    $params = @{
-        Uri = "$($baseUrl)/workspaces/$($workspaceId)/items"
-        Method = "GET"
-        Headers = $requestHeader
-        ContentType = $contentType
-    }
-    $workspaceItems = (Invoke-RestMethod @params).value
-    $repoItems = getRepositoryItems $folder # keep track of found objectIds (either from config files or creating files
-    # and corresponding configs) and remove all other object ids from the workspace
-    # if they exist update them else create new ones
-    foreach ($item in $workspaceItems) {
-        createOrUpdateRepositoryItem $requestHeader $contentType $baseUrl $workspaceId $item $folder $repoItems
+    Write-Host "Loading environment file..."
+    get-content config/.env | ForEach-Object {
+        $name, $value = $_.split('=')
+        set-content env:\$name $value
     }
 
-    # delete folders that are not in the workspace items
-    foreach ($repoItem in ($repoItems | Where-Object {!$_.done})) {
-        Write-Host "Deleting folder $($repoItem.folder)"
-        Remove-Item -Path $repoItem.folder -Recurse -Force
-    }
-    Write-Host "Script execution completed successfully. Repository items have been updated from workspace $workspaceName." -ForegroundColor Green
+    Write-Host "Fabric REST API endpoint is $env:FABRIC_API_BASEURL"
+
+    # Write-Host "this task is running Powershell version " $PSVersionTable.PSVersion
+    # Write-Host "the folder we are working on is $folder"
+    # Write-Host "Updating workspace items for workspace $workspaceName"
+
+    # $itemConfigFileName = "item-config.json"
+    # $itemMetadataFileName = "item-metadata.json"
+    # $itemDefinitionFileName = "item-definition.json"
+
+    # $authHeader = "Bearer $($fabricToken)"
+    # $requestHeader = @{
+    # Authorization = $authHeader
+    # }
+    # $contentType = "application/json"
+
+    # # 1. Check if a workspace with given name already exists, if not create a new one
+    # $workspaceId = getWorkspaceId $requestHeader $contentType $baseUrl $workspaceName
+
+    # # get workspace items
+    # # 2. For every item on the branch, check if they exist in the workspace
+    # # first get a list of all items in the workspace
+    # $params = @{
+    #     Uri = "$($baseUrl)/workspaces/$($workspaceId)/items"
+    #     Method = "GET"
+    #     Headers = $requestHeader
+    #     ContentType = $contentType
+    # }
+    # $workspaceItems = (Invoke-RestMethod @params).value
+    # $repoItems = getRepositoryItems $folder # keep track of found objectIds (either from config files or creating files
+    # # and corresponding configs) and remove all other object ids from the workspace
+    # # if they exist update them else create new ones
+    # foreach ($item in $workspaceItems) {
+    #     createOrUpdateRepositoryItem $requestHeader $contentType $baseUrl $workspaceId $item $folder $repoItems
+    # }
+
+    # # delete folders that are not in the workspace items
+    # foreach ($repoItem in ($repoItems | Where-Object {!$_.done})) {
+    #     Write-Host "Deleting folder $($repoItem.folder)"
+    #     Remove-Item -Path $repoItem.folder -Recurse -Force
+    # }
+    # Write-Host "Script execution completed successfully. Repository items have been updated from workspace $workspaceName." -ForegroundColor Green
 }
 catch {
     $errorResponse = GetErrorResponse($_)
