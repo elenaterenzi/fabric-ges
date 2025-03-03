@@ -297,7 +297,7 @@ function longRunningOperationPolling($uri, $retryAfter){
 
 function loadEnvironmentVariables() {
     Write-Host "Loading environment file..."
-    get-content ../config/.env | ForEach-Object {
+    get-content config/.env | ForEach-Object {
         if ($_ -match '^#') { return } # skip comments
         $name, $value = $_.split('=')
         $value = $value.split('#')[0].trim() # to support commented env files
