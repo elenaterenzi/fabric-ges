@@ -303,21 +303,19 @@ function loadEnvironmentVariables() {
         $value = $value.split('#')[0].trim() # to support commented env files
         set-content env:\$name $value
     }
-
     Write-Host "Finished loading environment file. \nFabric REST API endpoint is $env:FABRIC_API_BASEURL"    
 }
 try {
-
-    # TODO: consider removing the logicalId from the file as it's not used today.
-    Write-Host "this task is running Powershell version " $PSVersionTable.PSVersion
-    Write-Host "the folder we are working on is $folder"
-    Write-Host "Updating workspace items for workspace $workspaceName"
-
     loadEnvironmentVariables
     $baseUrl=$env:FABRIC_API_BASEURL
     $fabricToken=$env:FABRIC_USER_TOKEN
     $capacityId=$env:FABRIC_CAPACITY_ID
     $folder=$env:ITEMS_FOLDER
+
+    # TODO: consider removing the logicalId from the file as it's not used today.
+    Write-Host "this task is running Powershell version " $PSVersionTable.PSVersion
+    Write-Host "the folder we are working on is $folder"
+    Write-Host "Updating workspace items for workspace $workspaceName"
 
     $itemConfigFileName = "item-config.json"
     $itemMetadataFileName = "item-metadata.json"
