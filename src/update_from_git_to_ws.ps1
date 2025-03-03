@@ -301,6 +301,7 @@ function loadEnvironmentVariables() {
         if ($_ -match '^#') { return } # skip comments
         $name, $value = $_.split('=')
         $value = $value.split('#')[0].trim() # to support commented env files
+        $value = $value -replace '^"|"$' # remove leading and trailing double quotes
         set-content env:\$name $value
     }
     Write-Host "Finished loading environment file. \nFabric REST API endpoint is $env:FABRIC_API_BASEURL"    
