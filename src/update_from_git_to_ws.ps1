@@ -76,6 +76,7 @@ function getWorkspaceItems($requestHeader, $contentType, $baseUrl, $workspaceId)
 function createWorkspaceItem($baseUrl, $workspaceId, $requestHeader, $contentType, $itemMetadata, $itemDefinition){
     if ($itemDefinition)
     {
+        Write-Host "Creating item $($itemMetadata.displayName) with definition." -ForegroundColor Yellow
         # if the item has a definition create the item with definition
         $body = @{
             displayName = $itemMetadata.displayName
@@ -85,6 +86,7 @@ function createWorkspaceItem($baseUrl, $workspaceId, $requestHeader, $contentTyp
         }
     }
     else { #item does not have definition, only create the item with metadata
+        Write-Host "Creating item $($itemMetadata.displayName) without definition." -ForegroundColor Yellow
         $body = @{
             displayName = $itemMetadata.displayName
             description = $itemMetadata.description
@@ -210,11 +212,11 @@ function createOrUpdateWorkspaceItem($requestHeader, $contentType, $baseUrl, $wo
     if (!$itemConfig.objectId) {
         # 3. if an objectId is not present and only a logicalId is present then
         # Create a new object and save the objectId in the config file
-        Write-Host "Item $folder does not have an associated objectId, creating new Fabric item of type $($itemMetadata.type) with name $($itemMetadata.displayName)." -ForegroundColor Yellow
+        Write-Host "Item $($itemMetadata.displayName) does not have an associated objectId, creating new Fabric item of type $($itemMetadata.type) with name $($itemMetadata.displayName)." -ForegroundColor Yellow
 
         $item = createWorkspaceItem $baseUrl $workspaceId $requestHeader $contentType $itemMetadata $itemDefinition
         
-        Write-Host "item is $($item.displayName) with id $($item.id)"
+        Write-Host "Created item $($item.displayName) with id $($item.id)"
         # update the config file with the returned objectId
         $itemConfig | add-member -Name "objectId" -value $item.id -MemberType NoteProperty -Force
         Write-Host "itemConfig objectId is $($itemConfig.objectId)"
