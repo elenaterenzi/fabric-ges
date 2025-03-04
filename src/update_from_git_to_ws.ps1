@@ -308,6 +308,7 @@ function loadEnvironmentVariables() {
     }
     Write-Host "Finished loading environment file. \nFabric REST API endpoint is $env:FABRIC_API_BASEURL"    
 }
+
 try {
     loadEnvironmentVariables
     $baseUrl=$env:FABRIC_API_BASEURL
