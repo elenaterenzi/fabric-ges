@@ -20,9 +20,6 @@ else
     fi
 fi
 
-# TODO: can this be used with a SPN/MI?
-
-
 # grab an Entra token for the Fabric API
 token=$(az account get-access-token \
     --resource "https://analysis.windows.net/powerbi/api" \
