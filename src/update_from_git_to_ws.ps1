@@ -174,7 +174,7 @@ function createOrUpdateWorkspaceItem($requestHeader, $contentType, $baseUrl, $wo
     if ([System.IO.File]::Exists($definitionFilePath)){
         $itemDefinition = Get-Content -Path $definitionFilePath -Raw | ConvertFrom-Json
         Write-Host "Found item definition for $($itemMetadata.displayName)" -ForegroundColor Green
-        $contentFiles = Get-ChildItem -Path $folder | Where-Object {$_.Name -notlike $itemMetadataFileName -and $_.Name -notlike $itemDefinitionFileName -and $_.Name -notlike $itemConfigFileName}
+        $contentFiles = Get-ChildItem -Path $folder -Force | Where-Object {$_.Name -notlike $itemMetadataFileName -and $_.Name -notlike $itemDefinitionFileName -and $_.Name -notlike $itemConfigFileName}
         #$contentFiles = Get-ChildItem -Path $folder | Where-Object {$_.Name -like "*content*"}
         if ($contentFiles -and $contentFiles.Count -ge 1){ # if there is at least a content file then update the definition payload
             Write-Host "Found $($contentFiles.Count) content file(s) for $($itemMetadata.displayName)" -ForegroundColor Green
