@@ -7,7 +7,7 @@ source ./config/.env
 
 # Validate input arguments: workspaceName, itemName, itemType, folder
 if [ "$#" -ne 4 ]; then
-    echo "Usage: $0 <workspaceName> <itemName> <itemType> <folder>"
+    log "Usage: $0 <workspaceName> <itemName> <itemType> <folder>"
     exit 1
 fi
 
@@ -18,7 +18,7 @@ folder="$4"          # Destination folder for the definition file
 
 # Check required environment variables
 if [ -z "$FABRIC_API_BASEURL" ] || [ -z "$FABRIC_USER_TOKEN" ]; then
-    echo "FABRIC_API_BASEURL or FABRIC_USER_TOKEN is not set in the env file."
+    log "FABRIC_API_BASEURL or FABRIC_USER_TOKEN is not set in the env file."
     exit 1
 fi
 
@@ -28,13 +28,13 @@ mkdir -p "$folder"
 # -----------------------------------------------------------------------------
 # Check if the API token is expired and refresh if needed using refresh_api_token.sh
 # -----------------------------------------------------------------------------
-if [[ $(is_token_expired) ]]; then
-    echo "API token has expired. Refreshing token..."
+if [[ $(is_token_expired) = "1" ]]; then
+    log "API token has expired. Refreshing token..."
     # Call refresh_api_token.sh.
     ./src/refresh_api_token.sh 
     # Reload environment variables after token refresh.
     source ./config/.env
-    echo "Token refreshed."
+    log "Token refreshed."
 fi
 
 # -----------------------------------------------------------------------------
@@ -42,10 +42,10 @@ fi
 # -----------------------------------------------------------------------------
 workspaceId=$(get_workspace_id "$workspaceName")
 if [ -z "$workspaceId" ]; then
-    echo "Error: Could not find workspace $workspaceName."
+    log "Error: Could not find workspace $workspaceName."
     exit 1
 fi
-echo "Found workspace '$workspaceName' with ID: $workspaceId"
+log "Found workspace '$workspaceName' with ID: '$workspaceId'"
 
 # -----------------------------------------------------------------------------
 # Retrieve the item definition for the specified item using helper function
@@ -53,7 +53,7 @@ echo "Found workspace '$workspaceName' with ID: $workspaceId"
 # -----------------------------------------------------------------------------
 definitionJson=$(get_item_definition "$workspaceId" "$itemName" "$itemType")
 if [ -z "$definitionJson" ]; then
-    echo "Error: Failed to retrieve definition for item $itemName of type $itemType."
+    log "Error: Failed to retrieve definition for item $itemName of type $itemType."
     exit 1
 fi
 
@@ -63,4 +63,4 @@ fi
 # -----------------------------------------------------------------------------
 outputFile="$folder/${itemName}-${itemType}-definition.json"
 echo "$definitionJson" > "$outputFile"
-echo "Definition saved to $outputFile"
+log "Definition saved to $outputFile"
