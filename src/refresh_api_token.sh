@@ -24,7 +24,7 @@ fi
 token=$(az account get-access-token \
     --resource "https://analysis.windows.net/powerbi/api" \
     --query "accessToken" \
-    -o tsv)
+    -o tsv | tr -d '\r')
 
 # Refresh the token in the .env file
 sed -i "s/FABRIC_USER_TOKEN=.*/FABRIC_USER_TOKEN=$token/" ./config/.env

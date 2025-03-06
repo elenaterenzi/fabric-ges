@@ -2,8 +2,8 @@
 
 set -e
 
-. ./authenticate.sh
-. ./fabric_functions.sh
+. ./refresh_api_token.sh
+. ./fabric_api_helpers.sh
 
 source ./config/.env
 

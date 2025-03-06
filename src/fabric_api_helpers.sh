@@ -77,10 +77,79 @@ rest_call(){
 
 }
 
+long_running_operation_polling() {
+    local uri=$1
+    local retryAfter=$2
+
+    echo "Polling long running operation ID $uri has been started with a retry-after time of $retryAfter seconds."
+
+    while true; do
+        operationState=$(curl -s -H "$requestHeader" -H "Content-Type: $contentType" "$uri")
+        status=$(echo "$operationState" | jq -r '.Status')
+
+        echo "Long running operation status: $status"
+
+        if [[ "$status" == "NotStarted" || "$status" == "Running" ]]; then
+            sleep 20
+        else
+            break
+        fi
+    done
+
+    if [ "$status" == "Failed" ]; then
+        echo "The long running operation has been completed with failure. Error response: $(echo "$operationState" | jq '.')"
+    else
+        echo "The long running operation has been successfully completed."
+        if [ -n "$responseHeadersLocation" ]; then
+            uri="$responseHeadersLocation"
+        else
+            return
+        fi
+        item=$(curl -s -H "$requestHeader" -H "Content-Type: $contentType" "$uri")
+        echo "$item"
+    fi
+}
+
+function is_token_expired {
+    # Ensure the token is set
+    if [ -z "$FABRIC_USER_TOKEN" ]; then
+        echo "No FABRIC_USER_TOKEN set." >&2
+        echo 1
+    fi
+
+    # Extract JWT payload (assumes token format: header.payload.signature)
+    payload=$(echo "$FABRIC_USER_TOKEN" | cut -d '.' -f2 | sed 's/-/+/g; s/_/\//g;')
+    # Add missing padding if needed
+    mod4=$(( ${#payload} % 4 ))
+    if [ $mod4 -ne 0 ]; then
+        payload="${payload}$(printf '%0.s=' $(seq 1 $((4 - mod4))))"
+    fi
+
+    # Decode payload and extract the expiration field using jq
+    exp=$(echo "$payload" | base64 -d 2>/dev/null | jq -r '.exp')
+    if [ -z "$exp" ]; then
+        echo "Unable to parse token expiration." >&2
+        echo 1
+    fi
+
+    # Compare expiration with current time
+    current=$(date +%s)
+    if [ "$current" -ge "$exp" ]; then
+        # Token is expired
+        echo 1
+    else
+        # Token is not expired
+        echo 0
+    fi
+}
+
 #############################
 ##    Fabric functions
 #############################
 
+#----------------------------
+# Workspaces
+#----------------------------
 
 # Function to get all workspaces names
 get_workspace_names(){
@@ -89,14 +158,14 @@ get_workspace_names(){
 }
 
 # Get workspace displayName by specifying a workspace id
-get_workspace_by_id(){
+get_workspace_name(){
     local workspace_id=$1
     rest_call get "workspaces/$workspace_id" "displayName" tsv
     #az rest --method get --uri "$FABRIC_API_BASEURL/workspaces/$workspace_id" --headers "Authorization=Bearer $token"
 }
 
 # Get workspace id by specifying a workspace displayName
-get_workspace_by_name(){
+get_workspace_id(){
     local workspace_name=$1
     rest_call get "workspaces" "value[?displayName=='$workspace_name'].id" tsv
     #az rest --method get --uri "$FABRIC_API_BASEURL/workspaces/$workspace_id" --headers "Authorization=Bearer $token"
@@ -122,7 +191,7 @@ get_or_create_workspace() {
     local workspace_name=$1
     local capacity_id=$2
 
-    workspace_id=$(get_workspace_by_name "$workspace_name")
+    workspace_id=$(get_workspace_id "$workspace_name")
 
     if [ -z "$workspace_id" ]; then
         log "A workspace with the requested name $workspace_name was not found, creating new workspace." 
@@ -134,10 +203,14 @@ get_or_create_workspace() {
     echo $workspace_id
 }
 
+#----------------------------
+# Items
+#----------------------------
+
+
 get_workspace_items(){
     local workspace_id=$1
     # get all workspace items
-    # does not return Semantic Models or SQL Analytics endpoints that are tied to a Lakehouse
     rest_call get "workspaces/$workspace_id/items" "value" "json"
 }
 
@@ -152,6 +225,37 @@ get_workspace_items(){
 # get_workspace_names
 
 # get_or_create_workspace "test_workspace" $FABRIC_CAPACITY_ID
+get_item_id(){
+    local workspace_id=$1
+    local item_name=$2
+    local item_type=$3
+    rest_call get "workspaces/$workspace_id/items?type=$item_type" "value[?displayName=='$item_name'].id" tsv
+}
+
+get_item_definition(){
+    local workspace_id=$1
+    local item_name=$2
+    local item_type=$3
+    # Get item id
+    item_id=$(get_item_id "$workspace_id" "$item_name" "$item_type")
+    if [ -z "$item_id" ]; then
+        echo "Item $item_name of type $item_type was not found in the workspace." >&2
+        return 1
+    fi
+    echo "retrieving item definition for $item_name"
+    # then get item definition
+    # if itemType=Notebook then filter for format=ipynb
+    if [ "$item_type" == "Notebook" ]; then
+        uri="workspaces/$workspace_id/items/$item_id/getDefinition?format=ipynb"
+    else
+        uri="workspaces/$workspace_id/items/$item_id/getDefinition"
+    fi
+    response=$(curl -sSi -X POST -H "Authorization: Bearer $FABRIC_USER_TOKEN" "$uri" --data "")
+    location=$(echo "$response" | grep -i ^location: | cut -d: -f2- | sed 's/^ *\(.*\).*/\1/')
+    retry_after=$(echo "$response" | grep -i ^retry-after: | cut -d: -f2- | sed 's/^ *\(.*\).*/\1/')
+
+    response=$(rest_call get $uri)
+}
 
 create_or_update_workspace_item() {
     local workspace_id=$1
