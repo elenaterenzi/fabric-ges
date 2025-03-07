@@ -81,14 +81,13 @@ rest_call(){
 long_running_operation_polling() {
     local uri=$1
     local retryAfter=$2
+    local requestHeader="Authorization: Bearer $FABRIC_USER_TOKEN"
 
-    log "Polling long running operation ID $uri has been started with a retry-after time of $retryAfter seconds."
+    log "Polling long running operation ID has been started with a retry-after time of $retryAfter seconds."
 
     while true; do
-        operationState=$(curl -s -H "$requestHeader" -H "Content-Type: $contentType" "$uri")
-        status=$(echo "$operationState" | jq -r '.Status')
-
-        log "Long running operation status: $status"
+        operationState=$(curl -s -H "$requestHeader" "$uri")
+        status=$(echo "$operationState" | jq -r '.status')
 
         if [[ "$status" == "NotStarted" || "$status" == "Running" ]]; then
             sleep 20
@@ -100,13 +99,8 @@ long_running_operation_polling() {
     if [ "$status" == "Failed" ]; then
         log "The long running operation has been completed with failure. Error response: $(echo "$operationState" | jq '.')"
     else
-        log "The long running operation has been successfully completed."
-        if [ -n "$responseHeadersLocation" ]; then
-            uri="$responseHeadersLocation"
-        else
-            return
-        fi
-        item=$(curl -s -H "$requestHeader" -H "Content-Type: $contentType" "$uri")
+        log "Operation successfully completed." "success"
+        item=$(curl -s -H "$requestHeader" "$uri/result")
         echo "$item"
     fi
 }
@@ -116,6 +110,7 @@ function is_token_expired {
     if [ -z "$FABRIC_USER_TOKEN" ]; then
         log "No FABRIC_USER_TOKEN set."
         echo 1
+        return
     fi
 
     # Extract JWT payload (assumes token format: header.payload.signature)
@@ -131,6 +126,7 @@ function is_token_expired {
     if [ -z "$exp" ]; then
         log "Unable to parse token expiration."
         echo 1
+        return
     fi
 
     # Compare expiration with current time
@@ -239,7 +235,7 @@ get_item_definition(){
     local item_type=$3
     # Get item id
     item_id=$(get_item_id "$workspace_id" "$item_name" "$item_type")
-    log "found item $item_name with id $item_id"
+    log "Found item '$item_name' with ID: '$item_id'"
     if [ -z "$item_id" ]; then
         log "Item $item_name of type $item_type was not found in the workspace."
         return 1
@@ -252,11 +248,46 @@ get_item_definition(){
     else
         uri="workspaces/$workspace_id/items/$item_id/getDefinition"
     fi
-    response=$(curl -sSi -X POST -H "Authorization: Bearer $FABRIC_USER_TOKEN" "$uri" --data "")
-    location=$(echo "$response" | grep -i ^location: | cut -d: -f2- | sed 's/^ *\(.*\).*/\1/')
-    retry_after=$(echo "$response" | grep -i ^retry-after: | cut -d: -f2- | sed 's/^ *\(.*\).*/\1/')
+    response=$(curl -sSi -X POST -H "Authorization: Bearer $FABRIC_USER_TOKEN" "$FABRIC_API_BASEURL/$uri" --data "")
+    location=$(echo "$response" | grep -i ^location: | cut -d: -f2- | sed 's/^ *\(.*\).*/\1/' | tr -d '\r')
+    retry_after=$(echo "$response" | grep -i ^retry-after: | cut -d: -f2- | sed 's/^ *\(.*\).*/\1/' | tr -d '\r')
+    if [ -z "$location" ]; then
+        log "Failed to retrieve definition for item $item_name of type $item_type."
+        return 1
+    fi
 
-    response=$(rest_call get $uri)
+    response=$(long_running_operation_polling "$location" "$retry_after")
+    if [ -z "$response" ]; then
+        log "Failed to retrieve definition for item $item_name of type $item_type."
+        return 1
+    fi
+    echo "$response"
+}
+
+store_item_definition(){
+    local folder=$1
+    local item_name=$2
+    local item_type=$3
+    local definitionJson=$4
+    local output_folder="$folder/$item_name.$item_type"
+    mkdir -p "$output_folder"
+    # for each path element in the item definition json
+    # convert the base64 encoded content to a file
+    # using the payloadType, payload and path elements
+    # for part in $(echo "$definitionJson" | jq -r '.definition.parts[] | @base64'); do
+    #     part=$(echo "$part" | base64 --decode)
+    for part in $(echo "$definitionJson" | jq -r -c '.definition.parts[]'); do
+        path=$(echo "$part" | jq -r -c '.path')
+        payloadType=$(echo "$part" | jq -r -c '.payloadType')
+        payload=$(echo "$part" | jq -r -c '.payload')
+        log "Saving item definition part '$path' in '$output_folder'"
+        if [ "$payloadType" == "InlineBase64" ]; then
+            echo -n "$payload" | base64 -d > "$output_folder/$path"
+        else
+            echo -n "$payload" > "$output_folder/$path"
+        fi
+    done 
+    log "Item definition saved to $output_folder" "success"
 }
 
 create_or_update_workspace_item() {

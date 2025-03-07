@@ -56,11 +56,13 @@ if [ -z "$definitionJson" ]; then
     log "Error: Failed to retrieve definition for item $itemName of type $itemType."
     exit 1
 fi
+log "Definition retrieved for item '$itemName' of type '$itemType'" "success"
 
 # -----------------------------------------------------------------------------
 # Save the downloaded definition JSON to a file in the provided folder
 # Optionally include item type in the output file name
 # -----------------------------------------------------------------------------
-outputFile="$folder/${itemName}-${itemType}-definition.json"
-echo "$definitionJson" > "$outputFile"
-log "Definition saved to $outputFile"
+log "Saving definition to file..."
+store_item_definition "$folder" "$itemName" "$itemType" "$definitionJson"
+
+log "Script successfully completed." "success"
