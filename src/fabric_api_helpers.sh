@@ -249,18 +249,26 @@ get_item_definition(){
         uri="workspaces/$workspace_id/items/$item_id/getDefinition"
     fi
     response=$(curl -sSi -X POST -H "Authorization: Bearer $FABRIC_USER_TOKEN" "$FABRIC_API_BASEURL/$uri" --data "")
-    location=$(echo "$response" | grep -i ^location: | cut -d: -f2- | sed 's/^ *\(.*\).*/\1/' | tr -d '\r')
-    retry_after=$(echo "$response" | grep -i ^retry-after: | cut -d: -f2- | sed 's/^ *\(.*\).*/\1/' | tr -d '\r')
-    if [ -z "$location" ]; then
+    status_code=$(echo "$response" | head -n 1 | cut -d' ' -f2)
+
+    if [ "$status_code" != 202 ] && [ "$status_code" != 200 ]; then
         log "Failed to retrieve definition for item $item_name of type $item_type."
         return 1
+    fi
+    if [ "$status_code" == 200 ]; then
+        response=$(echo "$response" | tail -n 1)
+        echo "$response"
+        return 0
+    else
+        location=$(echo "$response" | grep -i ^location: | cut -d: -f2- | sed 's/^ *\(.*\).*/\1/' | tr -d '\r')
+        retry_after=$(echo "$response" | grep -i ^retry-after: | cut -d: -f2- | sed 's/^ *\(.*\).*/\1/' | tr -d '\r')
+        response=$(long_running_operation_polling "$location" "$retry_after")
+        if [ -z "$response" ]; then
+            log "Failed to retrieve definition for item $item_name of type $item_type."
+            return 1
+        fi
     fi
 
-    response=$(long_running_operation_polling "$location" "$retry_after")
-    if [ -z "$response" ]; then
-        log "Failed to retrieve definition for item $item_name of type $item_type."
-        return 1
-    fi
     echo "$response"
 }
 
