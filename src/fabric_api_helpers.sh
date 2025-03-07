@@ -226,13 +226,74 @@ get_item_id(){
     local workspace_id=$1
     local item_name=$2
     local item_type=$3
-    rest_call get "workspaces/$workspace_id/items?type=$item_type" "value[?displayName=='$item_name'].id" tsv | tr -d '\r'
+    # rest_call get "workspaces/$workspace_id/items?type=$item_type" "value[?displayName=='$item_name'].id" tsv | tr -d '\r'
+    echo $(get_item_by_name "$workspace_id" "$item_name" "$item_type" | jq -r '.id')
+}
+
+get_item_by_name(){
+    local workspace_id=$1
+    local item_name=$2
+    local item_type=$3
+    rest_call get "workspaces/$workspace_id/items?type=$item_type" "value[?displayName=='$item_name'] | [0].{description: description, displayName: displayName, type: type, id: id}" "json" | tr -d '\r'
+}
+
+get_and_store_item(){
+    local workspace_id=$1
+    local item_name=$2
+    local item_type=$3
+    local folder=$4
+    # This function retrieves the definition of an item
+    # requires as inputs the workspace id, the item name and the item type
+    # If the item type supports retrieving the definition then it will return that
+    # else it will return the item metadata
+
+    if [ $item_type == "Notebook" ] || [ $item_type == "DataPipeline" ]; then
+        # When the item supports definition then use the getDefinition API
+        item_definition = $(get_item_definition "$workspace_id" "$item_name" "$item_type")
+        if [ -z "$item_definition" ]; then
+            log "Failed to retrieve definition for item $item_name of type $item_type."
+            return 1
+        fi
+        log "Saving definition to file..."
+        store_item_definition "$folder" "$item_name" "$item_type" "$item_definition"
+    else
+        item_metadata=$(rest_call get "workspaces/$workspace_id/items?type=$item_type" "value[?displayName=='$item_name'] | [0].{description: description, displayName: displayName, type: type}" "json" | tr -d '\r')
+        if [ -z "$item_metadata" ]; then
+            log "Item $item_name of type $item_type was not found in the workspace."
+            return 1
+        fi
+        log "Saving item metadata..."
+        store_item_metadata "$folder" "$item_name" "$item_type" "$item_metadata"
+    fi
+}
+
+store_item_metadata(){
+    local folder=$1
+    local item_name=$2
+    local item_type=$3
+    local item_metadata=$4
+    local output_folder="$folder/$item_name.$item_type"
+    mkdir -p "$output_folder"
+    platform_file=$(cat <<EOF
+{
+  "\$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": $item_metadata,
+  "config": {
+    "version": "2.0",
+    "logicalId": "00000000-0000-0000-0000-000000000000"
+  }
+}
+EOF
+)
+    echo "$platform_file" | jq '.' > "$output_folder/.platform"
+    log "Item metadata saved to $output_folder" "success"
 }
 
 get_item_definition(){
     local workspace_id=$1
     local item_name=$2
     local item_type=$3
+
     # Get item id
     item_id=$(get_item_id "$workspace_id" "$item_name" "$item_type")
     log "Found item '$item_name' with ID: '$item_id'"

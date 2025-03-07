@@ -48,21 +48,10 @@ fi
 log "Found workspace '$workspaceName' with ID: '$workspaceId'"
 
 # -----------------------------------------------------------------------------
-# Retrieve the item definition for the specified item using helper function
-# Now filtered by both item name and item type
+# Retrieve the item definition for the specified item if it exists
+# Handle items that don't have a definition such as Lakehouse, Environment
+# For these items, the API returns only the .platform file
 # -----------------------------------------------------------------------------
-definitionJson=$(get_item_definition "$workspaceId" "$itemName" "$itemType")
-if [ -z "$definitionJson" ]; then
-    log "Error: Failed to retrieve definition for item $itemName of type $itemType."
-    exit 1
-fi
-log "Definition retrieved for item '$itemName' of type '$itemType'" "success"
-
-# -----------------------------------------------------------------------------
-# Save the downloaded definition JSON to a file in the provided folder
-# Optionally include item type in the output file name
-# -----------------------------------------------------------------------------
-log "Saving definition to file..."
-store_item_definition "$folder" "$itemName" "$itemType" "$definitionJson"
+get_and_store_item "$workspaceId" "$itemName" "$itemType" "$folder"
 
 log "Script successfully completed." "success"
