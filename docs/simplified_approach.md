@@ -16,14 +16,17 @@ The `simplified_update_item.sh` script is part of our Fabric Git integration wor
 - **Git**: To manage your repository.
 - A proper configuration file located at `./config/.env` containing the following variables:
     - `TENANT_ID`: Required. Your Entra Tenant ID, used to authenticate and retrieve an access token
-    - `FABRIC_CAPACITY_ID`: Required. The capacity id (existing and running) of the capacity where the Fabric item will be created
     - `FABRIC_API_BASEURL`: Required. The base URL for the Fabric API.
-    - `FABRIC_USER_TOKEN`: Optional. The authentication token for the Fabric API. Will be filled by the script, can be left as is.
+    - `FABRIC_USER_TOKEN`: Optional. The authentication token for the Fabric API. This will be filled by the script, can be left as is.
 
     > Note: The Fabric Capacity needs to be running, else the script will fail 
 
 ## Assumptions
-The sample should be executed using a user that has access to the Fabric workspace for which items need to be downloaded, with minimal permisions of `Viewer`.
+
+The sample assumes the following:
+- the script should be executed using a user that has access to the Fabric workspace for which items need to be downloaded, with minimal permisions of `Viewer`.
+- The Fabric workspace from which items should be downloaded is assigned to a running Fabric capacity. If the capacity is paused the script will fail.
+
 
 ## How to Use the Script
 1. **Ensure Environment Setup:**
@@ -32,7 +35,7 @@ The sample should be executed using a user that has access to the Fabric workspa
    ```bash
    cp ./config/.envtemplate ./config/.env
    ```
-   - Edit the newly created `.env` file, filling the required parameters (`TENANT_ID`, `FABRIC_CAPACITY_ID`, `FABRIC_API_BASEURL`)
+   - Edit the newly created `.env` file, filling the required parameters (`TENANT_ID`, `FABRIC_API_BASEURL`)
    - Confirm that your `./config/.env` file is up to date with the correct Fabric API endpoint and token.
    - Load environment variables
    ```bash
@@ -52,20 +55,19 @@ The sample should be executed using a user that has access to the Fabric workspa
 
 3. **Example Usage:**
    ```bash
-   ./src/simplified_update_item.sh "MyWorkspace" "SalesReport" "Notebook" "./items/SalesReport"
+   ./src/simplified_update_item.sh "MyWorkspaceName" "MyNotebookName" "Notebook" "./fabric"
    ```
    This command will:
-   - Check if the Fabric API token is expired; if so, it refreshes the token.
-   - Retrieve the workspace ID corresponding to `"MyWorkspace"`.
-   - Look for the item `"SalesReport"` of type `"Notebook"` within that workspace.
-   - Download the item definition and store the resulting files in the `./items/SalesReport` folder.
+   - Check if the Fabric API token is expired; if so, it will refresh the token and reload environment variables.
+   - Retrieve the workspace ID corresponding to `MyWorkspaceName`.
+   - Look for the item `MyNotebookName` of type `Notebook` within that workspace. Revie the list of supported [Fabric item types](https://learn.microsoft.com/rest/api/fabric/core/items/list-items?tabs=HTTP#itemtype).
+   - Download the item definition and store the resulting files in the `./fabric` folder.
 
-4. **CI/CD Integration:**
-   You can integrate this script into your full CI/CD pipeline as described in this document. The script helps ensure that the latest version of a Fabric item's definition is available in your Git repository, automating the updating process during your deployments.
+4. **Commit to source control**
+   - **Manual Step**: After the item definition is downloaded locally, the files can be committed to the feature branch with the preferred mechanism: for example using VS Code or by executing a `git commit` command.
+
 
 ## Troubleshooting
 - If the script cannot find the workspace or item, double-check the names and types.
-- Ensure that your API token is valid. The script will attempt to refresh expired tokens automatically.
+- Ensure that the right Tenant ID is provided. The script will attempt to refresh expired tokens automatically.
 - Verify that the necessary tools (az, jq, curl, git) are installed and accessible.
-
-For additional information on our full CI/CD approach, please refer to the remainder of this document.
