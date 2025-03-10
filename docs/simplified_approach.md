@@ -57,7 +57,7 @@ The sample assumes the following:
    This command will:
    - Check if the Fabric API token is expired; if so, it will refresh the token and reload environment variables.
    - Retrieve the workspace ID corresponding to `MyWorkspaceName`.
-   - Look for the item `MyNotebookName` of type `Notebook` within that workspace. Revie the list of supported [Fabric item types](https://learn.microsoft.com/rest/api/fabric/core/items/list-items?tabs=HTTP#itemtype).
+   - Look for the item `MyNotebookName` of type `Notebook` within that workspace. Review the list of supported [Fabric item types](https://learn.microsoft.com/rest/api/fabric/core/items/list-items?tabs=HTTP#itemtype).
    - Download the item definition and store the resulting files in the `./fabric` folder.
 
 4. **Commit to source control**
