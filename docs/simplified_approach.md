@@ -10,22 +10,20 @@ The `simplified_update_item.sh` script is part of our Fabric Git integration wor
 
 ## Prerequisite Software
 - **Bash**: The script is written in Bash and requires a Unix-like shell.
-- **Azure CLI (az)**: Used by the helper functions to make REST API calls to Fabric.
+- **Azure CLI (az)**: Used to generate a Fabric API token. Also used by the helper functions to make REST API calls to Fabric.
 - **jq**: For processing JSON responses.
 - **curl**: For HTTP requests made in the long-running operations.
 - **Git**: To manage your repository.
 - A proper configuration file located at `./config/.env` containing the following variables:
     - `TENANT_ID`: Required. Your Entra Tenant ID, used to authenticate and retrieve an access token
-    - `FABRIC_API_BASEURL`: Required. The base URL for the Fabric API.
+    - `FABRIC_API_BASEURL`: Required. The base URL for the Fabric API. No need to update this as it's fixed.
     - `FABRIC_USER_TOKEN`: Optional. The authentication token for the Fabric API. This will be filled by the script, can be left as is.
-
-    > Note: The Fabric Capacity needs to be running, else the script will fail 
 
 ## Assumptions
 
 The sample assumes the following:
 - the script should be executed using a user that has access to the Fabric workspace for which items need to be downloaded, with minimal permisions of `Viewer`.
-- The Fabric workspace from which items should be downloaded is assigned to a running Fabric capacity. If the capacity is paused the script will fail.
+- The Fabric workspace from which items should be downloaded is assigned to a **running** Fabric capacity. If the capacity is paused the script will fail.
 
 
 ## How to Use the Script
@@ -35,15 +33,14 @@ The sample assumes the following:
    ```bash
    cp ./config/.envtemplate ./config/.env
    ```
-   - Edit the newly created `.env` file, filling the required parameters (`TENANT_ID`, `FABRIC_API_BASEURL`)
-   - Confirm that your `./config/.env` file is up to date with the correct Fabric API endpoint and token.
+   - Edit the newly created `.env` file, filling the required parameters (`TENANT_ID`)
    - Load environment variables
    ```bash
    source config/.env
    ```
    - Login to Azure CLI with your user or SPN/MI, below instructions for user login with device code:
    ```bash
-   az login --use-device-code
+   az login --use-device-code -t $TENANT_ID
    ```
 
 2. **Script Parameters:**
