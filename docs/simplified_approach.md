@@ -15,16 +15,15 @@ The `simplified_update_item.sh` script is part of our Fabric Git integration wor
 - **curl**: For HTTP requests made in the long-running operations.
 - **Git**: To manage your repository.
 - A proper configuration file located at `./config/.env` containing the following variables:
-    - `TENANT_ID`: Required. Your Entra Tenant ID, used to authenticate and retrieve an access token
-    - `FABRIC_API_BASEURL`: Required. The base URL for the Fabric API. No need to update this as it's fixed.
-    - `FABRIC_USER_TOKEN`: Optional. The authentication token for the Fabric API. This will be filled by the script, can be left as is.
+   - `TENANT_ID`: Required. Your Entra Tenant ID, used to authenticate and retrieve an access token
+   - `FABRIC_API_BASEURL`: Required. The base URL for the Fabric API. No need to update this as it's fixed.
+   - `FABRIC_USER_TOKEN`: Optional. The authentication token for the Fabric API. This will be filled by the script, can be left as is.
 
 ## Assumptions
 
 The sample assumes the following:
-- the script should be executed using a user that has access to the Fabric workspace for which items need to be downloaded, with minimal permisions of `Viewer`.
+- the script should be executed using a user that has access to the Fabric workspace for which items need to be downloaded, with minimal permissions of `Viewer`.
 - The Fabric workspace from which items should be downloaded is assigned to a **running** Fabric capacity. If the capacity is paused the script will fail.
-
 
 ## How to Use the Script
 1. **Ensure Environment Setup:**
@@ -63,8 +62,17 @@ The sample assumes the following:
 4. **Commit to source control**
    - **Manual Step**: After the item definition is downloaded locally, the files can be committed to the feature branch with the preferred mechanism: for example using VS Code or by executing a `git commit` command.
 
-
 ## Troubleshooting
 - If the script cannot find the workspace or item, double-check the names and types.
 - Ensure that the right Tenant ID is provided. The script will attempt to refresh expired tokens automatically.
 - Verify that the necessary tools (az, jq, curl, git) are installed and accessible.
+
+## Remarks
+
+The simplified approach has only been tested with items of type: DataPipeline, Lakehouse, Notebook, Environment. Other item types have not been tested and the sample might not be mimicking the current Fabric git integration approach. If a specific item type is important for you/your company, contributions to this repository would be more than welcome!
+
+### Known Gaps
+
+When a Lakehouse or Environment item is synced only a `.platform` file is produced. This deviates from the current Git integration behavior:
+- for Lakehouse items, Fabric git integration generates also a `shortcuts.metadata.json` file, containing the list of shortcuts that point to other Lakehouse items (either in the same or other workspaces of the same tenant).
+- for Environment items, Fabric git integration generates also a `Settings` folder that contains the Spark pool `yml` settings definition file.
