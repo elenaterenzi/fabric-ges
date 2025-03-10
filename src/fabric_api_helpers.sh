@@ -249,7 +249,7 @@ get_and_store_item(){
 
     if [ $item_type == "Notebook" ] || [ $item_type == "DataPipeline" ]; then
         # When the item supports definition then use the getDefinition API
-        item_definition = $(get_item_definition "$workspace_id" "$item_name" "$item_type")
+        item_definition=$(get_item_definition "$workspace_id" "$item_name" "$item_type")
         if [ -z "$item_definition" ]; then
             log "Failed to retrieve definition for item $item_name of type $item_type."
             return 1
