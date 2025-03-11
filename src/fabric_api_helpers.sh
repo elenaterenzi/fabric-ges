@@ -366,7 +366,7 @@ create_or_update_item() {
     # check if the item already exists in the workspace
     item_id=$(get_item_id "$workspace_id" "$item_name" "$item_type")
     if [ -n "$item_id" ]; then
-        log "Item $item_name of type $item_type already exists in the workspace with ID: $item_id.\nUpdating item..." "warning"
+        log "Item $item_name of type $item_type already exists in the workspace and has item ID: $item_id.\nUpdating item..." "warning"
         update_item "$workspace_id" "$item_id" "$item_name" "$item_type" "$item_folder"
     else
         log "Item $item_name of type $item_type does not exist in the workspace.\n Creating new item..." "info"
@@ -386,6 +386,24 @@ create_item() {
 
     # if the item type does not have a definition then use the metadata
 }
+create_workspace_item() {
+    local baseUrl=$1
+    local workspace_id=$2
+    local requestHeader=$3
+    local contentType=$4
+    local itemMetadata=$5
+    local itemDefinition=$6
+
+    if [ -n "$itemDefinition" ]; then
+        body=$(jq -n --arg displayName "$(echo "$itemMetadata" | jq -r '.displayName')" --arg description "$(echo "$itemMetadata" | jq -r '.description')" --arg type "$(echo "$itemMetadata" | jq -r '.type')" --argjson definition "$(echo "$itemDefinition" | jq '.definition')" '{displayName: $displayName, description: $description, type: $type, definition: $definition}')
+    else
+        body=$(jq -n --arg displayName "$(echo "$itemMetadata" | jq -r '.displayName')" --arg description "$(echo "$itemMetadata" | jq -r '.description')" --arg type "$(echo "$itemMetadata" | jq -r '.type')" '{displayName: $displayName, description: $description, type: $type}')
+    fi
+
+    item=$(curl -s -X POST -H "$requestHeader" -H "Content-Type: $contentType" -d "$body" "$baseUrl/workspaces/$workspace_id/items")
+    echo "Sensitivity Labels won't make future item definition updates possible. Please update Sensitivity Labels for created items before re-running this script."
+    echo "$item"
+}
 
 update_item() {
     local workspace_id=$1
@@ -394,7 +412,7 @@ update_item() {
     local item_type=$4
     local item_folder=$5
     # This function updates an existing item in the workspace
-    # It takes the workspace ID, item name, item type, and folder as arguments
+    # It takes the workspace ID, item id, item name, item type, and folder as arguments
 
     # check if the item folder contains a definition file
     # if the item type is DataPipeline then the defintion file name is 'pipeline-content.json'
@@ -413,13 +431,13 @@ update_item() {
     definition_file_exists=false
     if ([ "$item_type" == "Notebook" ] || [ "$item_type" == "DataPipeline" ]) && [ ! -f "$definition_file" ]; then
         log "No definition file found in the item folder '$item_folder', only metadata will be updated." "warning"
-    else
+    elif [ "$item_type" == "Notebook" ] || [ "$item_type" == "DataPipeline" ]; then
         definition_file_exists=true
         log "Definition file found in the item folder '$item_folder'."
     fi
 
     if [ $definition_file_exists == "true" ]; then
-        update_item_with_definition "$workspace_id" "$item_id" "$item_folder"
+        returned_item=$(update_item_with_definition "$workspace_id" "$item_id" "$item_folder")
     else
         # update only metadata
         item_metadata=$(jq -r ".metadata | {displayName, description}" "$platform_file")
@@ -443,6 +461,42 @@ update_item_with_definition() {
     
     
 
+}
+
+update_item_definition() {
+    local workspace_id=$1
+    local item_id=$2
+    local item_folder=$3
+
+
+    uri="workspaces/$workspace_id/items/$item_id/updateDefinition?updateMetadata=true"
+
+    # list all files in the item folder
+    # for every file, get the base64 encoded content
+    # and create a part object with the path, payloadType and payload
+    parts=()
+    find "$item_folder" -type f | while IFS= read -r file; do
+        path=$(basename "$file")
+        payloadType="InlineBase64"
+        payload=$(base64 -w 0 "$file")
+        part=$(cat <<EOF
+{"path" : "$path", "payloadType" : "$payloadType", "payload" : "$payload"}
+EOF
+        )
+        parts+=("$part")
+    done
+
+    # create the body
+    #log "Body is $body"
+
+    
+    # if [ "$(echo "$itemMetadata" | jq -r '.type')" == "Notebook" ] && [ -z "$(echo "$itemDefinition" | jq -r '.definition.format')" ]; then
+    #     itemDefinition=$(echo "$itemDefinition" | jq '.definition.format = "ipynb"')
+    # fi
+    # body=$(jq -n --argjson definition "$(echo "$itemDefinition" | jq '.definition')" '{definition: $definition}')
+
+    # echo "Executing POST to update definition of item $(echo "$itemConfig" | jq -r '.objectId') $(echo "$itemMetadata" | jq -r '.displayName')"
+    # curl -s -X POST -H "$requestHeader" -H "Content-Type: $contentType" -d "$body" "$uri"
 }
 
     # metadataFilePath="$folder/$itemMetadataFileName"
