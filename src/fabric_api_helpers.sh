@@ -49,7 +49,7 @@ log() {
     fi
 }
 
-# Function to make REST API calls to Fabric API
+# Helper to make REST API calls to Fabric API
 rest_call(){
     local method=$1
     local uri=$2
