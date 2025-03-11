@@ -113,22 +113,6 @@ function is_token_expired {
     fi
 }
 
-function item_name_and_type() {
-    # This function takes a folder name as an argument and returns the item name and type
-    # The item name is the folder name without the path before the . sign
-    # The item type is the last element of the folder name
-    # Usage: item_name_and_type "path/to/folder/itemname.itemtype"
-    # Example: item_name_and_type "path/to/folder/itemname.itemtype" will return "itemname" "itemtype"
-
-    local item_folder=$1
-    local delim="."
-    local item_name_and_type=$(basename "$item_folder")
-
-    local item_name=${item_name_and_type%%$delim*}
-    local item_type=${item_name_and_type#*$delim}
-    echo "$item_name $item_type"
-}
-
 #############################
 ##    Fabric functions
 #############################
@@ -202,7 +186,7 @@ get_workspace_items(){
 
 get_item_id(){
     local workspace_id=$1
-    local item_name=$2
+    local item_name="$2"
     local item_type=$3
     # rest_call get "workspaces/$workspace_id/items?type=$item_type" "value[?displayName=='$item_name'].id" tsv | tr -d '\r'
     echo $(get_item_by_name "$workspace_id" "$item_name" "$item_type" | jq -r '.id')
@@ -210,21 +194,21 @@ get_item_id(){
 
 get_item_by_name(){
     local workspace_id=$1
-    local item_name=$2
+    local item_name="$2"
     local item_type=$3
     rest_call get "workspaces/$workspace_id/items?type=$item_type" "value[?displayName=='$item_name'] | [0].{description: description, displayName: displayName, type: type, id: id}" "json" | tr -d '\r'
 }
 
 get_and_store_item(){
-    local workspace_id=$1
-    local item_name=$2
-    local item_type=$3
-    local folder=$4
+    local workspace_id="$1"
+    local item_name="$2"
+    local item_type="$3"
+    local folder="$4"
     # This function retrieves the definition of an item
     # requires as inputs the workspace id, the item name and the item type
     # If the item type supports retrieving the definition then it will return that
     # else it will return the item metadata
-
+    log "Retrieving item '$item_name' of type '$item_type' from workspace '$workspace_id'"
     if [ $item_type == "Notebook" ] || [ $item_type == "DataPipeline" ]; then
         # When the item supports definition then use the getDefinition API
         item_definition=$(get_item_definition "$workspace_id" "$item_name" "$item_type")
@@ -279,7 +263,7 @@ get_item_definition(){
         return 1
     fi
     log "Found item '$item_name' with ID: '$item_id'"
-    log "retrieving item definition for $item_name"
+    log "retrieving item definition for '$item_name'"
     # then get item definition
     # if itemType=Notebook then filter for format=ipynb
     if [ "$item_type" == "Notebook" ]; then
@@ -292,6 +276,7 @@ get_item_definition(){
 
     if [ "$status_code" != 202 ] && [ "$status_code" != 200 ]; then
         log "Failed to retrieve definition for item $item_name of type $item_type."
+        log "Response: $response"
         return 1
     fi
     if [ "$status_code" == 200 ]; then
@@ -372,76 +357,154 @@ store_item_definition(){
 # Function to create or update a workspace item
 # This function takes a workspace ID, item name, item type, and folder as arguments
 # It checks if the item already exists in the workspace and either creates or updates it accordingly
-create_or_update_workspace_item() {
+create_or_update_item() {
     local workspace_id=$1
     local item_name=$2
     local item_type=$3
     local item_folder=$4
 
     # check if the item already exists in the workspace
-    local item_id=$(get_item_id "$workspace_id" "$item_name" "$item_type")
-
-    metadataFilePath="$folder/$itemMetadataFileName"
-    if [ -f "$metadataFilePath" ]; then
-        itemMetadata=$(cat "$metadataFilePath")
-        log "Found item metadata for $(echo "$itemMetadata" | jq -r '.displayName')"
+    item_id=$(get_item_id "$workspace_id" "$item_name" "$item_type")
+    if [ -n "$item_id" ]; then
+        log "Item $item_name of type $item_type already exists in the workspace with ID: $item_id.\nUpdating item..." "warning"
+        update_item "$workspace_id" "$item_id" "$item_name" "$item_type" "$item_folder"
     else
-        log "Item $folder does not have the required metadata file, skipping."
-        return
+        log "Item $item_name of type $item_type does not exist in the workspace.\n Creating new item..." "info"
+        create_item "$workspace_id" "$item_name" "$item_type" "$item_folder"
     fi
-
-    definitionFilePath="$folder/$itemDefinitionFileName"
-    if [ -f "$definitionFilePath" ]; then
-        itemDefinition=$(cat "$definitionFilePath")
-        log "Found item definition for $(echo "$itemMetadata" | jq -r '.displayName')"
-        contentFiles=$(find "$folder" -type f ! -name "$itemMetadataFileName" ! -name "$itemDefinitionFileName" ! -name "$itemConfigFileName")
-        if [ -n "$contentFiles" ]; then
-            log "Found $(echo "$contentFiles" | wc -l) content file(s) for $(echo "$itemMetadata" | jq -r '.displayName')"
-            for part in $(echo "$itemDefinition" | jq -r '.definition.parts[] | @base64'); do
-                part=$(echo "$part" | base64 --decode)
-                file=$(echo "$contentFiles" | grep "$(echo "$part" | jq -r '.path')")
-                itemContent=$(cat "$file")
-                base64Content=$(echo -n "$itemContent" | base64)
-                part=$(echo "$part" | jq --arg payload "$base64Content" '.payload = $payload')
-                itemDefinition=$(echo "$itemDefinition" | jq --argjson part "$part" '.definition.parts |= map(if .path == $part.path then $part else . end)')
-            done
-            echo "$itemDefinition" | jq '.' > "$definitionFilePath"
-            log "Updated item definition payload with content file for $(echo "$itemMetadata" | jq -r '.displayName')"
-        else
-            log "Missing content file or found more than one content file, skipping update definition for $folder."
-            return
-        fi
-    fi
-
-    configFilePath="$folder/$itemConfigFileName"
-    if [ ! -f "$configFilePath" ] || [ "$resetConfig" == "true" ]; then
-        log "No $itemConfigFileName file found, creating new file."
-        itemConfig=$(jq -n --arg logicalId "$(uuidgen)" '{logicalId: $logicalId}')
-        echo "$itemConfig" | jq '.' > "$configFilePath"
-    else
-        itemConfig=$(cat "$configFilePath")
-        log "Found item config file for $folder. Item missing objectId? $(echo "$itemConfig" | jq -r 'has("objectId") | not'). Item missing logicalId? $(echo "$itemConfig" | jq -r 'has("logicalId") | not')"
-    fi
-
-    if [ -z "$(echo "$itemConfig" | jq -r '.objectId')" ]; then
-        log "Item $folder does not have an associated objectId, creating new Fabric item of type $(echo "$itemMetadata" | jq -r '.type') with name $(echo "$itemMetadata" | jq -r '.displayName')."
-        item=$(create_workspace_item "$baseUrl" "$workspace_id" "$requestHeader" "$contentType" "$itemMetadata" "$itemDefinition")
-        itemConfig=$(echo "$itemConfig" | jq --arg objectId "$(echo "$item" | jq -r '.id')" '.objectId = $objectId')
-        echo "$itemConfig" | jq '.' > "$configFilePath"
-        repoItems+=("$(echo "$item" | jq -r '.id')")
-    else
-        item=$(echo "$workspaceItems" | jq -r ".[] | select(.id == \"$(echo "$itemConfig" | jq -r '.objectId')\")")
-        if [ -z "$item" ]; then
-            log "Item $(echo "$itemConfig" | jq -r '.objectId') of type $(echo "$itemMetadata" | jq -r '.type') was not found in the workspace, creating new item."
-            item=$(create_workspace_item "$baseUrl" "$workspace_id" "$requestHeader" "$contentType" "$itemMetadata" "$itemDefinition")
-            itemConfig=$(echo "$itemConfig" | jq --arg objectId "$(echo "$item" | jq -r '.id')" '.objectId = $objectId')
-            echo "$itemConfig" | jq '.' > "$configFilePath"
-            repoItems+=("$(echo "$item" | jq -r '.id')")
-        else
-            repoItems+=("$(echo "$itemConfig" | jq -r '.objectId')")
-            log "Item $(echo "$itemConfig" | jq -r '.objectId') of type $(echo "$item" | jq -r '.type') was found in the workspace, updating item."
-            update_workspace_item "$baseUrl" "$workspace_id" "$requestHeader" "$contentType" "$itemMetadata" "$itemDefinition" "$itemConfig"
-        fi
-    fi
-    echo "${repoItems[@]}"
 }
+
+create_item() {
+    local workspace_id=$1
+    local item_name=$2
+    local item_type=$3
+    local item_folder=$4
+    # This function creates a new item in the workspace
+    # It takes the workspace ID, item name, item type, and folder as arguments
+
+    # if the item type has a definition then use the definition
+
+    # if the item type does not have a definition then use the metadata
+}
+
+update_item() {
+    local workspace_id=$1
+    local item_id=$2
+    local item_name=$3
+    local item_type=$4
+    local item_folder=$5
+    # This function updates an existing item in the workspace
+    # It takes the workspace ID, item name, item type, and folder as arguments
+
+    # check if the item folder contains a definition file
+    # if the item type is DataPipeline then the defintion file name is 'pipeline-content.json'
+    # if the item type is Notebook then the defintion file name is 'notebook-content.ipynb' or 'notebook-content.py'
+    platform_file="$item_folder/.platform"
+
+    # if the item type requires definition files then make sure they exist 
+    if   [ "$item_type" == "Notebook" ] && [ ! -f "$item_folder/notebook-content.ipynb" ]; then
+         definition_file="$item_folder/notebook-content.py"
+    elif [ "$item_type" == "Notebook" ] && [ ! -f "$item_folder/notebook-content.py" ]; then
+            definition_file="$item_folder/notebook-content.ipynb"
+    elif [ "$item_type" == "DataPipeline" ]; then
+            definition_file="$item_folder/pipeline-content.json"
+    fi
+
+    definition_file_exists=false
+    if ([ "$item_type" == "Notebook" ] || [ "$item_type" == "DataPipeline" ]) && [ ! -f "$definition_file" ]; then
+        log "No definition file found in the item folder '$item_folder', only metadata will be updated." "warning"
+    else
+        definition_file_exists=true
+        log "Definition file found in the item folder '$item_folder'."
+    fi
+
+    if [ $definition_file_exists == "true" ]; then
+        update_item_with_definition "$workspace_id" "$item_id" "$item_folder"
+    else
+        # update only metadata
+        item_metadata=$(jq -r ".metadata | {displayName, description}" "$platform_file")
+        returned_item=$(rest_call patch "workspaces/$workspace_id/items/$item_id" "" "json" "$item_metadata")
+    fi
+
+    if [ -z "$returned_item" ]; then
+        log "Failed to update item $item_name of type $item_type."
+        return 1
+    fi
+    # check if the item folder contains a content file
+}
+
+update_item_with_definition() {
+    local workspace_id=$1
+    local item_id=$2
+    local item_folder=$3
+    # This function updates an existing item in the workspace
+    # Given a workspace ID, and item id creates an item_definition
+    # by looping into item_folder files and encoding their content into base64
+    
+    
+
+}
+
+    # metadataFilePath="$folder/$itemMetadataFileName"
+    # if [ -f "$metadataFilePath" ]; then
+    #     itemMetadata=$(cat "$metadataFilePath")
+    #     log "Found item metadata for $(echo "$itemMetadata" | jq -r '.displayName')"
+    # else
+    #     log "Item $folder does not have the required metadata file, skipping."
+    #     return
+    # fi
+
+    # definitionFilePath="$folder/$itemDefinitionFileName"
+    # if [ -f "$definitionFilePath" ]; then
+    #     itemDefinition=$(cat "$definitionFilePath")
+    #     log "Found item definition for $(echo "$itemMetadata" | jq -r '.displayName')"
+    #     contentFiles=$(find "$folder" -type f ! -name "$itemMetadataFileName" ! -name "$itemDefinitionFileName" ! -name "$itemConfigFileName")
+    #     if [ -n "$contentFiles" ]; then
+    #         log "Found $(echo "$contentFiles" | wc -l) content file(s) for $(echo "$itemMetadata" | jq -r '.displayName')"
+    #         for part in $(echo "$itemDefinition" | jq -r '.definition.parts[] | @base64'); do
+    #             part=$(echo "$part" | base64 --decode)
+    #             file=$(echo "$contentFiles" | grep "$(echo "$part" | jq -r '.path')")
+    #             itemContent=$(cat "$file")
+    #             base64Content=$(echo -n "$itemContent" | base64)
+    #             part=$(echo "$part" | jq --arg payload "$base64Content" '.payload = $payload')
+    #             itemDefinition=$(echo "$itemDefinition" | jq --argjson part "$part" '.definition.parts |= map(if .path == $part.path then $part else . end)')
+    #         done
+    #         echo "$itemDefinition" | jq '.' > "$definitionFilePath"
+    #         log "Updated item definition payload with content file for $(echo "$itemMetadata" | jq -r '.displayName')"
+    #     else
+    #         log "Missing content file or found more than one content file, skipping update definition for $folder."
+    #         return
+    #     fi
+    # fi
+
+    # configFilePath="$folder/$itemConfigFileName"
+    # if [ ! -f "$configFilePath" ] || [ "$resetConfig" == "true" ]; then
+    #     log "No $itemConfigFileName file found, creating new file."
+    #     itemConfig=$(jq -n --arg logicalId "$(uuidgen)" '{logicalId: $logicalId}')
+    #     echo "$itemConfig" | jq '.' > "$configFilePath"
+    # else
+    #     itemConfig=$(cat "$configFilePath")
+    #     log "Found item config file for $folder. Item missing objectId? $(echo "$itemConfig" | jq -r 'has("objectId") | not'). Item missing logicalId? $(echo "$itemConfig" | jq -r 'has("logicalId") | not')"
+    # fi
+
+    # if [ -z "$(echo "$itemConfig" | jq -r '.objectId')" ]; then
+    #     log "Item $folder does not have an associated objectId, creating new Fabric item of type $(echo "$itemMetadata" | jq -r '.type') with name $(echo "$itemMetadata" | jq -r '.displayName')."
+    #     item=$(create_workspace_item "$baseUrl" "$workspace_id" "$requestHeader" "$contentType" "$itemMetadata" "$itemDefinition")
+    #     itemConfig=$(echo "$itemConfig" | jq --arg objectId "$(echo "$item" | jq -r '.id')" '.objectId = $objectId')
+    #     echo "$itemConfig" | jq '.' > "$configFilePath"
+    #     repoItems+=("$(echo "$item" | jq -r '.id')")
+    # else
+    #     item=$(echo "$workspaceItems" | jq -r ".[] | select(.id == \"$(echo "$itemConfig" | jq -r '.objectId')\")")
+    #     if [ -z "$item" ]; then
+    #         log "Item $(echo "$itemConfig" | jq -r '.objectId') of type $(echo "$itemMetadata" | jq -r '.type') was not found in the workspace, creating new item."
+    #         item=$(create_workspace_item "$baseUrl" "$workspace_id" "$requestHeader" "$contentType" "$itemMetadata" "$itemDefinition")
+    #         itemConfig=$(echo "$itemConfig" | jq --arg objectId "$(echo "$item" | jq -r '.id')" '.objectId = $objectId')
+    #         echo "$itemConfig" | jq '.' > "$configFilePath"
+    #         repoItems+=("$(echo "$item" | jq -r '.id')")
+    #     else
+    #         repoItems+=("$(echo "$itemConfig" | jq -r '.objectId')")
+    #         log "Item $(echo "$itemConfig" | jq -r '.objectId') of type $(echo "$item" | jq -r '.type') was found in the workspace, updating item."
+    #         update_workspace_item "$baseUrl" "$workspace_id" "$requestHeader" "$contentType" "$itemMetadata" "$itemDefinition" "$itemConfig"
+    #     fi
+    # fi
+    # echo "${repoItems[@]}"
