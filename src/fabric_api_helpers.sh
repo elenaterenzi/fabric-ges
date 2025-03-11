@@ -78,33 +78,6 @@ rest_call(){
 
 }
 
-long_running_operation_polling() {
-    local uri=$1
-    local retryAfter=$2
-    local requestHeader="Authorization: Bearer $FABRIC_USER_TOKEN"
-
-    log "Polling long running operation ID has been started with a retry-after time of $retryAfter seconds."
-
-    while true; do
-        operationState=$(curl -s -H "$requestHeader" "$uri")
-        status=$(echo "$operationState" | jq -r '.status')
-
-        if [[ "$status" == "NotStarted" || "$status" == "Running" ]]; then
-            sleep 20
-        else
-            break
-        fi
-    done
-
-    if [ "$status" == "Failed" ]; then
-        log "The long running operation has been completed with failure. Error response: $(echo "$operationState" | jq '.')"
-    else
-        log "Operation successfully completed." "success"
-        item=$(curl -s -H "$requestHeader" "$uri/result")
-        echo "$item"
-    fi
-}
-
 function is_token_expired {
     # Ensure the token is set
     if [ -z "$FABRIC_USER_TOKEN" ]; then
@@ -138,6 +111,22 @@ function is_token_expired {
         # Token is not expired
         echo 0
     fi
+}
+
+function item_name_and_type() {
+    # This function takes a folder name as an argument and returns the item name and type
+    # The item name is the folder name without the path before the . sign
+    # The item type is the last element of the folder name
+    # Usage: item_name_and_type "path/to/folder/itemname.itemtype"
+    # Example: item_name_and_type "path/to/folder/itemname.itemtype" will return "itemname" "itemtype"
+
+    local item_folder=$1
+    local delim="."
+    local item_name_and_type=$(basename "$item_folder")
+
+    local item_name=${item_name_and_type%%$delim*}
+    local item_type=${item_name_and_type#*$delim}
+    echo "$item_name $item_type"
 }
 
 #############################
@@ -211,17 +200,6 @@ get_workspace_items(){
     rest_call get "workspaces/$workspace_id/items" "value" "json"
 }
 
-# workspaces=$(get_workspaces)
-# # az rest --method get --uri "$FABRIC_API_BASEURL/workspaces" --headers "Authorization=Bearer $token" --query "value[].{name:displayName, id:id, capacity_id:capacity_id}" -o json
-# for workspace in $workspaces; do
-#     echo $workspace #| jq -r '.name, .id, .capacity_id'
-# done
-
-# get_workspace_by_id "7edb50fc-82bd-4add-8521-7b8cc6cb0fc1"
-
-# get_workspace_names
-
-# get_or_create_workspace "test_workspace" $FABRIC_CAPACITY_ID
 get_item_id(){
     local workspace_id=$1
     local item_name=$2
@@ -333,6 +311,38 @@ get_item_definition(){
     echo "$response"
 }
 
+#-----------------------------
+# Long running operation
+#-----------------------------
+# Function to poll a long running operation
+long_running_operation_polling() {
+    local uri=$1
+    local retryAfter=$2
+    local requestHeader="Authorization: Bearer $FABRIC_USER_TOKEN"
+
+    log "Polling long running operation ID has been started with a retry-after time of $retryAfter seconds."
+
+    while true; do
+        operationState=$(curl -s -H "$requestHeader" "$uri")
+        status=$(echo "$operationState" | jq -r '.status')
+
+        if [[ "$status" == "NotStarted" || "$status" == "Running" ]]; then
+            sleep 20
+        else
+            break
+        fi
+    done
+
+    if [ "$status" == "Failed" ]; then
+        log "The long running operation has been completed with failure. Error response: $(echo "$operationState" | jq '.')"
+    else
+        log "Operation successfully completed." "success"
+        item=$(curl -s -H "$requestHeader" "$uri/result")
+        echo "$item"
+    fi
+}
+
+
 store_item_definition(){
     local folder=$1
     local item_name=$2
@@ -359,11 +369,17 @@ store_item_definition(){
     log "Item definition saved to $output_folder" "success"
 }
 
+# Function to create or update a workspace item
+# This function takes a workspace ID, item name, item type, and folder as arguments
+# It checks if the item already exists in the workspace and either creates or updates it accordingly
 create_or_update_workspace_item() {
     local workspace_id=$1
-    local workspaceItems=$2
-    local folder=$3
-    local repoItems=$4
+    local item_name=$2
+    local item_type=$3
+    local item_folder=$4
+
+    # check if the item already exists in the workspace
+    local item_id=$(get_item_id "$workspace_id" "$item_name" "$item_type")
 
     metadataFilePath="$folder/$itemMetadataFileName"
     if [ -f "$metadataFilePath" ]; then

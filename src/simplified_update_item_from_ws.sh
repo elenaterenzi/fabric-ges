@@ -1,4 +1,11 @@
 #!/bin/bash
+
+# -----------------------------------------------------------------------------
+# Script to download the definition of a Fabric item (e.g., Dataset, Pipeline, etc.)
+# and store it in a specified folder.
+# The script checks if the API token is expired and refreshes it if needed.
+# It also retrieves the workspace ID based on the provided workspace name.
+# -----------------------------------------------------------------------------
 set -e
 
 . ./src/fabric_api_helpers.sh
@@ -47,11 +54,14 @@ if [ -z "$workspaceId" ]; then
 fi
 log "Found workspace '$workspaceName' with ID: '$workspaceId'"
 
-# -----------------------------------------------------------------------------
-# Retrieve the item definition for the specified item if it exists
-# Handle items that don't have a definition such as Lakehouse, Environment
-# For these items, the API returns only the .platform file
-# -----------------------------------------------------------------------------
-get_and_store_item "$workspaceId" "$itemName" "$itemType" "$folder"
 
-log "Script successfully completed." "success"
+get_item_id $workspaceId "$itemName" "$itemType"
+
+# # -----------------------------------------------------------------------------
+# # Retrieve the item definition for the specified item if it exists
+# # Handle items that don't have a definition such as Lakehouse, Environment
+# # For these items, the API returns only the .platform file
+# # -----------------------------------------------------------------------------
+# get_and_store_item "$workspaceId" "$itemName" "$itemType" "$folder"
+
+# log "Script successfully completed." "success"
