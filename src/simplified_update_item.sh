@@ -40,18 +40,18 @@ fi
 # -----------------------------------------------------------------------------
 # Get the workspace ID from Fabric using a helper function 
 # -----------------------------------------------------------------------------
-workspaceId=$(get_workspace_id "$workspaceName")
-if [ -z "$workspaceId" ]; then
+workspace_id=$(get_workspace_id "$workspaceName")
+if [ -z "$workspace_id" ]; then
     log "Error: Could not find workspace $workspaceName."
     exit 1
 fi
-log "Found workspace '$workspaceName' with ID: '$workspaceId'"
+log "Found workspace '$workspaceName' with ID: '$workspace_id'"
 
 # -----------------------------------------------------------------------------
 # Retrieve the item definition for the specified item if it exists
 # Handle items that don't have a definition such as Lakehouse, Environment
 # For these items, the API returns only the .platform file
 # -----------------------------------------------------------------------------
-get_and_store_item "$workspaceId" "$itemName" "$itemType" "$folder"
+get_and_store_item "$workspace_id" "$itemName" "$itemType" "$folder"
 
 log "Script successfully completed." "success"
