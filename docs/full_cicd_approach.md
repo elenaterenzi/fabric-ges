@@ -100,7 +100,8 @@ The below picture illustrates these followed by a description of each of the num
 
 **Step 0. Prepare for local development**:
 
-- In a `bash` shell run the following command. Replace `feat/feat_1` with your feature branch name and `dev` with you main development branch name. This commands creates a new feature branch locally from `dev` (or the specified branch). It then instructs git to disregard local modifications to any new or existing `item-config.json` file. The purpose of this is to prevent the `objectId`s in the `dev` branch from being replaced by the `objectId`s from the developer workspace during a commit. For more information see the [Source Control Mechanisms for Fabric Items](#source-control-mechanism-for-fabric-items) section.
+- In a `bash` shell run the following command. Replace `feat/feat_1` with your feature branch name and `dev` with your main development branch name. This commands creates a new feature branch locally from `dev` (or the specified branch). It then instructs git to disregard local modifications to any new or existing `item-config.json` file. The purpose of this is to prevent the `objectId`s in the `dev` branch from being replaced by the `objectId`s from the developer workspace during a commit. For more information see the [Source Control Mechanisms for Fabric Items](#source-control-mechanism-for-fabric-items) section.
+
 
     ```sh
     .\new_branch.sh feat/feat_1 dev
