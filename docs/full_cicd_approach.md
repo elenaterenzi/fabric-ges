@@ -66,7 +66,8 @@ This sample uses PowerShell scripts to automate the CI/CD process. Below, you’
 
 ### Understanding The DevOps Pipelines
 
-The [DevOps Pipelies README](./devops/README.md) provides a comprehensive explanation of the functionality of the DevOps Pipelines showcased in this example.
+The [DevOps Pipelines README](./devops/README.md) provides a comprehensive explanation of the functionality of the DevOps Pipelines showcased in this example.
+
 
 ## Set-up Instructions
 
