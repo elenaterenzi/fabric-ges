@@ -47,12 +47,12 @@ fi
 # -----------------------------------------------------------------------------
 # Get the workspace ID from Fabric using a helper function 
 # -----------------------------------------------------------------------------
-workspaceId=$(get_workspace_id "$workspaceName")
-if [ -z "$workspaceId" ]; then
+workspace_id=$(get_workspace_id "$workspaceName")
+if [ -z "$workspace_id" ]; then
     log "Error: Could not find workspace $workspaceName."
     exit 1
 fi
-log "Found workspace '$workspaceName' with ID: '$workspaceId'"
+log "Found workspace '$workspaceName' with ID: '$workspace_id'"
 
 
 get_item_id $workspaceId "$itemName" "$itemType"

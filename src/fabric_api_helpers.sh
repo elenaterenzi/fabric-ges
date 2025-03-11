@@ -274,11 +274,11 @@ get_item_definition(){
 
     # Get item id
     item_id=$(get_item_id "$workspace_id" "$item_name" "$item_type")
-    log "Found item '$item_name' with ID: '$item_id'"
     if [ -z "$item_id" ]; then
         log "Item $item_name of type $item_type was not found in the workspace."
         return 1
     fi
+    log "Found item '$item_name' with ID: '$item_id'"
     log "retrieving item definition for $item_name"
     # then get item definition
     # if itemType=Notebook then filter for format=ipynb
