@@ -96,7 +96,7 @@ Create Build (CI) and Release (CD) pipelines from the YML definitions provided i
 
 The below picture illustrates these followed by a description of each of the numbered step:
 
-![Fabric CI/CD Architecture](./images/architecture_and_workflow.png)
+![Fabric CI/CD Architecture](../images/architecture_and_workflow.png)
 
 **Step 0. Prepare for local development**:
 
