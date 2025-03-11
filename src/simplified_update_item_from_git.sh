@@ -74,7 +74,7 @@ if [ -z "$item_name" ] || [ -z "$item_type" ]; then
     log "Error: Item name or type not found in the .platform file."
     exit 1
 fi
-log "Platform file contain item '$item_name' of type $item_type"
+log "Platform file contains item '$item_name' of type $item_type"
 
 create_or_update_item "$workspaceId" "$item_name" "$item_type" "$item_folder"
 
