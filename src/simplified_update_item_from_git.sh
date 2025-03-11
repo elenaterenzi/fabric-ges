@@ -77,49 +77,5 @@ fi
 log "Platform file contain item '$item_name' of type $item_type"
 
 create_or_update_item "$workspaceId" "$item_name" "$item_type" "$item_folder"
-log "Item '$item_name' of type '$item_type' has been created or updated successfully."
 
-# # Upload the item definition
-# upload_item "$workspaceId" "$itemName" "$itemType" "$item_folder"
-# log "Script successfully completed." "success"
-
-# # -----------------------------------------------------------------------------
-# # Function to upload the item definition
-# # -----------------------------------------------------------------------------
-# upload_item() {
-#     local workspaceId="$1"
-#     local itemName="$2"
-#     local itemType="$3"
-#     local item_folder="$4"
-
-#     # Check if the item folder contains a .platform file
-#     if [ ! -f "$item_folder/.platform" ]; then
-#         log "Error: No .platform file found in the item folder '$item_folder'."
-#         exit 1
-#     fi
-
-#     # Upload the item definition using the Fabric API
-#     # This is a placeholder logic; you may need to adjust it based on your API endpoint and parameters
-#     log "Uploading item '$itemName' of type '$itemType' to workspace ID '$workspaceId'..."
-# }
-#     # Example API call (replace with actual API endpoint and parameters)
-#     response=$(curl -X POST "$FABRIC_API_BASEURL/workspaces/$workspaceId/items" \
-#         -
-#         -H "Authorization: Bearer $
-# FABRIC_USER_TOKEN" \
-#         -H "Content-Type: application/json" \
-#         -d '{
-#             "name": "'"$itemName"'",
-#             "type": "'"$itemType"'",
-#             "folder": "'"$item_folder"'"
-#         }')
-
-#     # Check the response for success or failure
-#     if [[ "$response" == *"success"* ]]; then
-#         log "Item '$itemName' uploaded successfully."
-#     else
-#         log "Error uploading item '$itemName': $response"
-#         exit 1
-#     fi
-# }
-
+log "Script successfully completed." "success"
