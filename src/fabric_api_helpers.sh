@@ -272,6 +272,20 @@ get_item_definition(){
         uri="workspaces/$workspace_id/items/$item_id/getDefinition"
     fi
     response=$(curl -sSi -X POST -H "Authorization: Bearer $FABRIC_USER_TOKEN" "$FABRIC_API_BASEURL/$uri" --data "")
+    response=$(return_operation_response "$response" "$item_name" "$item_type")
+
+    echo "$response"
+}
+
+#-----------------------------
+# Long running operation
+#-----------------------------
+
+return_operation_response() {
+    local response="$1"
+    local item_name="$2"
+    local item_type="$3"
+
     status_code=$(echo "$response" | head -n 1 | cut -d' ' -f2)
 
     if [ "$status_code" != 202 ] && [ "$status_code" != 200 ]; then
@@ -294,11 +308,9 @@ get_item_definition(){
     fi
 
     echo "$response"
+
 }
 
-#-----------------------------
-# Long running operation
-#-----------------------------
 # Function to poll a long running operation
 long_running_operation_polling() {
     local uri=$1
@@ -437,7 +449,7 @@ update_item() {
     fi
 
     if [ $definition_file_exists == "true" ]; then
-        returned_item=$(update_item_with_definition "$workspace_id" "$item_id" "$item_folder")
+        returned_item=$(update_item_definition "$workspace_id" "$item_id" "$item_folder")
     else
         # update only metadata
         item_metadata=$(jq -r ".metadata | {displayName, description}" "$platform_file")
@@ -448,117 +460,45 @@ update_item() {
         log "Failed to update item $item_name of type $item_type."
         return 1
     fi
-    # check if the item folder contains a content file
-}
 
-update_item_with_definition() {
-    local workspace_id=$1
-    local item_id=$2
-    local item_folder=$3
-    # This function updates an existing item in the workspace
-    # Given a workspace ID, and item id creates an item_definition
-    # by looping into item_folder files and encoding their content into base64
-    
-    
-
+    echo "$returned_item"
 }
 
 update_item_definition() {
     local workspace_id=$1
     local item_id=$2
-    local item_folder=$3
+    local item_folder="$3"
 
-
-    uri="workspaces/$workspace_id/items/$item_id/updateDefinition?updateMetadata=true"
-
-    # list all files in the item folder
+    # construct body or curl call by listing all files in the item folder
     # for every file, get the base64 encoded content
     # and create a part object with the path, payloadType and payload
-    parts=()
+    shopt -s lastpipe
     find "$item_folder" -type f | while IFS= read -r file; do
         path=$(basename "$file")
         payloadType="InlineBase64"
         payload=$(base64 -w 0 "$file")
-        part=$(cat <<EOF
-{"path" : "$path", "payloadType" : "$payloadType", "payload" : "$payload"}
-EOF
-        )
-        parts+=("$part")
+        file_extension="${path##*.}"
+        if [ $file_extension == "ipynb" ]; then
+            format="ipynb"
+        fi
+        echo '{"path" : "'"$path"'", "payloadType" : "'"$payloadType"'", "payload" : "'"$payload"'"}' >> parts.json
     done
 
-    # create the body
-    #log "Body is $body"
+    parts=$(cat parts.json | jq -s '.')
+    if [ -z $format ]; then
+        echo '{"definition" : {"parts" : ' $parts "}}" > definition.json
+    else
+        echo '{"definition" : {"parts" : '$parts', "format" : "'$format'"}}' > definition.json
+    fi
+    shopt -u lastpipe
 
-    
-    # if [ "$(echo "$itemMetadata" | jq -r '.type')" == "Notebook" ] && [ -z "$(echo "$itemDefinition" | jq -r '.definition.format')" ]; then
-    #     itemDefinition=$(echo "$itemDefinition" | jq '.definition.format = "ipynb"')
-    # fi
-    # body=$(jq -n --argjson definition "$(echo "$itemDefinition" | jq '.definition')" '{definition: $definition}')
+    uri="workspaces/$workspace_id/items/$item_id/updateDefinition?updateMetadata=true"
+    item_name=$(jq -r '.metadata.displayName' "$item_folder/.platform")
+    item_type=$(jq -r '.metadata.type' "$item_folder/.platform")
+    response=$(curl -sSi -X POST -H "Authorization: Bearer $FABRIC_USER_TOKEN" "$FABRIC_API_BASEURL/$uri" -H "Content-Type: application/json" --data "@definition.json")
+    response=$(return_operation_response "$response" "$item_name" "$item_type")
+    rm -f parts.json
+    rm -f definition.json
 
-    # echo "Executing POST to update definition of item $(echo "$itemConfig" | jq -r '.objectId') $(echo "$itemMetadata" | jq -r '.displayName')"
-    # curl -s -X POST -H "$requestHeader" -H "Content-Type: $contentType" -d "$body" "$uri"
+    echo "$response"
 }
-
-    # metadataFilePath="$folder/$itemMetadataFileName"
-    # if [ -f "$metadataFilePath" ]; then
-    #     itemMetadata=$(cat "$metadataFilePath")
-    #     log "Found item metadata for $(echo "$itemMetadata" | jq -r '.displayName')"
-    # else
-    #     log "Item $folder does not have the required metadata file, skipping."
-    #     return
-    # fi
-
-    # definitionFilePath="$folder/$itemDefinitionFileName"
-    # if [ -f "$definitionFilePath" ]; then
-    #     itemDefinition=$(cat "$definitionFilePath")
-    #     log "Found item definition for $(echo "$itemMetadata" | jq -r '.displayName')"
-    #     contentFiles=$(find "$folder" -type f ! -name "$itemMetadataFileName" ! -name "$itemDefinitionFileName" ! -name "$itemConfigFileName")
-    #     if [ -n "$contentFiles" ]; then
-    #         log "Found $(echo "$contentFiles" | wc -l) content file(s) for $(echo "$itemMetadata" | jq -r '.displayName')"
-    #         for part in $(echo "$itemDefinition" | jq -r '.definition.parts[] | @base64'); do
-    #             part=$(echo "$part" | base64 --decode)
-    #             file=$(echo "$contentFiles" | grep "$(echo "$part" | jq -r '.path')")
-    #             itemContent=$(cat "$file")
-    #             base64Content=$(echo -n "$itemContent" | base64)
-    #             part=$(echo "$part" | jq --arg payload "$base64Content" '.payload = $payload')
-    #             itemDefinition=$(echo "$itemDefinition" | jq --argjson part "$part" '.definition.parts |= map(if .path == $part.path then $part else . end)')
-    #         done
-    #         echo "$itemDefinition" | jq '.' > "$definitionFilePath"
-    #         log "Updated item definition payload with content file for $(echo "$itemMetadata" | jq -r '.displayName')"
-    #     else
-    #         log "Missing content file or found more than one content file, skipping update definition for $folder."
-    #         return
-    #     fi
-    # fi
-
-    # configFilePath="$folder/$itemConfigFileName"
-    # if [ ! -f "$configFilePath" ] || [ "$resetConfig" == "true" ]; then
-    #     log "No $itemConfigFileName file found, creating new file."
-    #     itemConfig=$(jq -n --arg logicalId "$(uuidgen)" '{logicalId: $logicalId}')
-    #     echo "$itemConfig" | jq '.' > "$configFilePath"
-    # else
-    #     itemConfig=$(cat "$configFilePath")
-    #     log "Found item config file for $folder. Item missing objectId? $(echo "$itemConfig" | jq -r 'has("objectId") | not'). Item missing logicalId? $(echo "$itemConfig" | jq -r 'has("logicalId") | not')"
-    # fi
-
-    # if [ -z "$(echo "$itemConfig" | jq -r '.objectId')" ]; then
-    #     log "Item $folder does not have an associated objectId, creating new Fabric item of type $(echo "$itemMetadata" | jq -r '.type') with name $(echo "$itemMetadata" | jq -r '.displayName')."
-    #     item=$(create_workspace_item "$baseUrl" "$workspace_id" "$requestHeader" "$contentType" "$itemMetadata" "$itemDefinition")
-    #     itemConfig=$(echo "$itemConfig" | jq --arg objectId "$(echo "$item" | jq -r '.id')" '.objectId = $objectId')
-    #     echo "$itemConfig" | jq '.' > "$configFilePath"
-    #     repoItems+=("$(echo "$item" | jq -r '.id')")
-    # else
-    #     item=$(echo "$workspaceItems" | jq -r ".[] | select(.id == \"$(echo "$itemConfig" | jq -r '.objectId')\")")
-    #     if [ -z "$item" ]; then
-    #         log "Item $(echo "$itemConfig" | jq -r '.objectId') of type $(echo "$itemMetadata" | jq -r '.type') was not found in the workspace, creating new item."
-    #         item=$(create_workspace_item "$baseUrl" "$workspace_id" "$requestHeader" "$contentType" "$itemMetadata" "$itemDefinition")
-    #         itemConfig=$(echo "$itemConfig" | jq --arg objectId "$(echo "$item" | jq -r '.id')" '.objectId = $objectId')
-    #         echo "$itemConfig" | jq '.' > "$configFilePath"
-    #         repoItems+=("$(echo "$item" | jq -r '.id')")
-    #     else
-    #         repoItems+=("$(echo "$itemConfig" | jq -r '.objectId')")
-    #         log "Item $(echo "$itemConfig" | jq -r '.objectId') of type $(echo "$item" | jq -r '.type') was found in the workspace, updating item."
-    #         update_workspace_item "$baseUrl" "$workspace_id" "$requestHeader" "$contentType" "$itemMetadata" "$itemDefinition" "$itemConfig"
-    #     fi
-    # fi
-    # echo "${repoItems[@]}"
