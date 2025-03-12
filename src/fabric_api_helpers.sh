@@ -274,8 +274,34 @@ get_item_definition(){
     echo "$response"
 }
 
+store_item_definition(){
+    local folder=$1
+    local item_name=$2
+    local item_type=$3
+    local definitionJson=$4
+    local output_folder="$folder/$item_name.$item_type"
+    mkdir -p "$output_folder"
+    # for each path element in the item definition json
+    # convert the base64 encoded content to a file
+    # using the payloadType, payload and path elements
+    # for part in $(echo "$definitionJson" | jq -r '.definition.parts[] | @base64'); do
+    #     part=$(echo "$part" | base64 --decode)
+    for part in $(echo "$definitionJson" | jq -r -c '.definition.parts[]'); do
+        path=$(echo "$part" | jq -r -c '.path')
+        payloadType=$(echo "$part" | jq -r -c '.payloadType')
+        payload=$(echo "$part" | jq -r -c '.payload')
+        log "Saving item definition part '$path' in '$output_folder'"
+        if [ "$payloadType" == "InlineBase64" ]; then
+            echo -n "$payload" | base64 -d > "$output_folder/$path"
+        else
+            echo -n "$payload" > "$output_folder/$path"
+        fi
+    done 
+    log "Item definition saved to $output_folder" "success"
+}
+
 #-----------------------------
-# Long running operation
+# Long running operations
 #-----------------------------
 
 return_operation_response() {
@@ -336,32 +362,9 @@ long_running_operation_polling() {
     fi
 }
 
-
-store_item_definition(){
-    local folder=$1
-    local item_name=$2
-    local item_type=$3
-    local definitionJson=$4
-    local output_folder="$folder/$item_name.$item_type"
-    mkdir -p "$output_folder"
-    # for each path element in the item definition json
-    # convert the base64 encoded content to a file
-    # using the payloadType, payload and path elements
-    # for part in $(echo "$definitionJson" | jq -r '.definition.parts[] | @base64'); do
-    #     part=$(echo "$part" | base64 --decode)
-    for part in $(echo "$definitionJson" | jq -r -c '.definition.parts[]'); do
-        path=$(echo "$part" | jq -r -c '.path')
-        payloadType=$(echo "$part" | jq -r -c '.payloadType')
-        payload=$(echo "$part" | jq -r -c '.payload')
-        log "Saving item definition part '$path' in '$output_folder'"
-        if [ "$payloadType" == "InlineBase64" ]; then
-            echo -n "$payload" | base64 -d > "$output_folder/$path"
-        else
-            echo -n "$payload" > "$output_folder/$path"
-        fi
-    done 
-    log "Item definition saved to $output_folder" "success"
-}
+#------------------------------
+# Item CRUD Operations
+#------------------------------
 
 # Function to create or update a workspace item
 # This function takes a workspace ID, item name, item type, and folder as arguments
@@ -421,24 +424,6 @@ create_item() {
         returned_item=$(update_item_definition "$workspace_id" "$item_id" "$item_folder")
     fi
     echo "$returned_item"
-}
-create_workspace_item() {
-    local baseUrl=$1
-    local workspace_id=$2
-    local requestHeader=$3
-    local contentType=$4
-    local itemMetadata=$5
-    local itemDefinition=$6
-
-    if [ -n "$itemDefinition" ]; then
-        body=$(jq -n --arg displayName "$(echo "$itemMetadata" | jq -r '.displayName')" --arg description "$(echo "$itemMetadata" | jq -r '.description')" --arg type "$(echo "$itemMetadata" | jq -r '.type')" --argjson definition "$(echo "$itemDefinition" | jq '.definition')" '{displayName: $displayName, description: $description, type: $type, definition: $definition}')
-    else
-        body=$(jq -n --arg displayName "$(echo "$itemMetadata" | jq -r '.displayName')" --arg description "$(echo "$itemMetadata" | jq -r '.description')" --arg type "$(echo "$itemMetadata" | jq -r '.type')" '{displayName: $displayName, description: $description, type: $type}')
-    fi
-
-    item=$(curl -s -X POST -H "$requestHeader" -H "Content-Type: $contentType" -d "$body" "$baseUrl/workspaces/$workspace_id/items")
-    echo "Sensitivity Labels won't make future item definition updates possible. Please update Sensitivity Labels for created items before re-running this script."
-    echo "$item"
 }
 
 update_item() {
