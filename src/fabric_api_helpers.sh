@@ -394,7 +394,7 @@ create_or_update_item() {
         log "Item $item_name of type $item_type already exists in the workspace and has item ID: $item_id.\nUpdating item..." "warning"
         returned_item=$(update_item "$workspace_id" "$item_id" "$item_name" "$item_type" "$item_folder")
     else
-        log "Item $item_name of type $item_type does not exist in the workspace.\n Creating new item..." "info"
+        log "Item $item_name of type $item_type does not exist in the workspace.\nCreating new item..." "info"
         returned_item=$(create_item "$workspace_id" "$item_name" "$item_type" "$item_folder")
     fi
 }
@@ -420,7 +420,7 @@ create_item() {
     # count the number of files in item_folder that are not the .platform file
     file_count=$(find "$item_folder" -type f ! -name ".platform" | wc -l)
     if [ "$file_count" -gt 0 ]; then
-        log "Updating item definition with $file_count files."
+        log "Updating item definition..." "info"
         returned_item=$(update_item_definition "$workspace_id" "$item_id" "$item_folder")
     fi
     echo "$returned_item"
