@@ -145,11 +145,8 @@ get_workspace_id(){
 create_workspace(){
     local workspace_name=$1
     local capacity_id=$2
-    body=$(cat <<EOF
-{"displayName" : "$workspace_name", "capacityId" : "$capacity_id"}
-EOF
-)
-    
+    body=$(echo '{"displayName" : "'$workspace_name'", "capacityId" : "'$capacity_id'"}')
+
     rest_call "POST" "workspaces" "id" "tsv" "$body"
 }
 
@@ -371,18 +368,31 @@ store_item_definition(){
 # It checks if the item already exists in the workspace and either creates or updates it accordingly
 create_or_update_item() {
     local workspace_id=$1
-    local item_name=$2
-    local item_type=$3
-    local item_folder=$4
+    local item_folder="$2"
+
+    platform_file="$item_folder/.platform"
+    if [ ! -f "$platform_file" ]; then
+        log "Item folder '$item_folder' does not contain a .platform file." "danger"
+        exit 1
+    fi
+
+    item_name=$(jq -r '.metadata.displayName' "$platform_file")
+    item_type=$(jq -r '.metadata.type' "$platform_file")
+    if [ -z "$item_name" ] || [ -z "$item_type" ]; then
+        log "Error: Item name or type not found in the .platform file."
+        exit 1
+    fi
+    log "Platform file contains item '$item_name' of type $item_type"
+
 
     # check if the item already exists in the workspace
     item_id=$(get_item_id "$workspace_id" "$item_name" "$item_type")
     if [ -n "$item_id" ]; then
         log "Item $item_name of type $item_type already exists in the workspace and has item ID: $item_id.\nUpdating item..." "warning"
-        update_item "$workspace_id" "$item_id" "$item_name" "$item_type" "$item_folder"
+        returned_item=$(update_item "$workspace_id" "$item_id" "$item_name" "$item_type" "$item_folder")
     else
         log "Item $item_name of type $item_type does not exist in the workspace.\n Creating new item..." "info"
-        create_item "$workspace_id" "$item_name" "$item_type" "$item_folder"
+        returned_item=$(create_item "$workspace_id" "$item_name" "$item_type" "$item_folder")
     fi
 }
 
@@ -394,9 +404,23 @@ create_item() {
     # This function creates a new item in the workspace
     # It takes the workspace ID, item name, item type, and folder as arguments
 
-    # if the item type has a definition then use the definition
+    body=$(echo '{"displayName": "'"$item_name"'", "description": "", "type": "'"$item_type"'"}')
 
-    # if the item type does not have a definition then use the metadata
+    returned_item=$(rest_call post "workspaces/$workspace_id/items" "" "json" "$body")
+    item_id=$(echo "$returned_item" | jq -r '.id')
+    if [ -z "$item_id" ]; then
+        log "Failed to create item $item_name of type $item_type."
+        return 1
+    fi
+
+    # if the item type has a definition then use the definition
+    # count the number of files in item_folder that are not the .platform file
+    file_count=$(find "$item_folder" -type f ! -name ".platform" | wc -l)
+    if [ "$file_count" -gt 0 ]; then
+        log "Updating item definition with $file_count files."
+        returned_item=$(update_item_definition "$workspace_id" "$item_id" "$item_folder")
+    fi
+    echo "$returned_item"
 }
 create_workspace_item() {
     local baseUrl=$1
@@ -459,6 +483,11 @@ update_item() {
     if [ -z "$returned_item" ]; then
         log "Failed to update item $item_name of type $item_type."
         return 1
+    fi
+    if [ $definition_file_exists == "true" ]; then
+        log "Item $item_name of type $item_type was updated with definition." "success"
+    else
+        log "Item $item_name of type $item_type was updated." "success"
     fi
 
     echo "$returned_item"

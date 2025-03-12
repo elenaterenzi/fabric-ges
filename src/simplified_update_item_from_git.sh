@@ -65,17 +65,6 @@ log "Found workspace '$workspaceName' with ID: '$workspaceId'"
 # call the create_or_update_item function to create or update the item
 # -----------------------------------------------------------------------------
 
-# Read the platform file and extract the item name and type from there
-platform_file="$item_folder/.platform"
-
-item_name=$(jq -r '.metadata.displayName' "$platform_file")
-item_type=$(jq -r '.metadata.type' "$platform_file")
-if [ -z "$item_name" ] || [ -z "$item_type" ]; then
-    log "Error: Item name or type not found in the .platform file."
-    exit 1
-fi
-log "Platform file contains item '$item_name' of type $item_type"
-
-create_or_update_item "$workspaceId" "$item_name" "$item_type" "$item_folder"
+create_or_update_item "$workspaceId" "$item_folder"
 
 log "Script successfully completed." "success"
