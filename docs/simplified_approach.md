@@ -1,7 +1,7 @@
 # Simplified Update Item Script – Usage Instructions
 
 ## Overview
-The [`simplified_update_item_from_ws.sh`](../src/simplified_update_item_from_ws.sh) script is part of our Fabric Git integration workflow and takes care of downloading items from Fabric so that developers can then commit those into source control. The script is designed to:
+The [`simplified_update_item_from_ws.sh`](../src/simplified_update_item_from_ws.sh) script takes care of downloading items from Fabric so that developers can then commit those into source control. The script is designed to:
 - Authenticate with the Fabric API (refreshing the API token if expired).
 - Retrieve the specified workspace by name (provided as an input parameter).
 - Locate an item within that workspace that matches the provided item name and type.
