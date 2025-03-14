@@ -384,7 +384,7 @@ update_item_definition() {
         if [ $file_extension == "ipynb" ]; then
             format="ipynb"
         fi
-        echo '{"path" : "'"$path"'", "payloadType" : "'"$payloadType"'", "payload" : "'"$payload"'"}' >> parts.json
+        echo -n '{"path" : "'"$path"'", "payloadType" : "'"$payloadType"'", "payload" : "'"$payload"'"}' >> parts.json
     done
 
     parts=$(cat parts.json | jq -s '.')
