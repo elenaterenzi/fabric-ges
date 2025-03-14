@@ -300,7 +300,7 @@ function longRunningOperationPolling($uri, $retryAfter){
 function loadEnvironmentVariables() {
     Write-Host "Loading environment file..."
     get-content config/.env | ForEach-Object {
-        if ($_ -match '^#') { return } # skip comments
+        if ($_ -match '^#' -or [string]::IsNullOrWhiteSpace($_)) { return } # skip comments and empty lines
         $name, $value = $_.split('=')
         $value = $value.split('#')[0].trim() # to support commented env files
         $value = $value -replace '^"|"$' # remove leading and trailing double quotes
