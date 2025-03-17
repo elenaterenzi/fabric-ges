@@ -387,11 +387,11 @@ update_item_definition() {
         echo -n '{"path" : "'"$path"'", "payloadType" : "'"$payloadType"'", "payload" : "'"$payload"'"}' >> parts.json
     done
 
-    parts=$(cat parts.json | jq -s '.')
+    parts=$(cat parts.json | jq -s '.' | tr -d '\r')
     if [ -z $format ]; then
-        echo '{"definition" : {"parts" : ' $parts "}}" > definition.json
+        echo -n '{"definition" : {"parts" : ' $parts "}}" > definition.json
     else
-        echo '{"definition" : {"parts" : '$parts', "format" : "'$format'"}}' > definition.json
+        echo -n '{"definition" : {"parts" : '$parts', "format" : "'$format'"}}' > definition.json
     fi
     shopt -u lastpipe
 
