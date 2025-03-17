@@ -387,7 +387,7 @@ update_item_definition() {
         echo -n '{"path" : "'"$path"'", "payloadType" : "'"$payloadType"'", "payload" : "'"$payload"'"}' >> parts.json
     done
 
-    parts=$(cat parts.json | jq -s '.' | tr -d '\r')
+    parts=$(cat parts.json | jq -s '.' | tr -d '\r' | tr -d '\n')
     if [ -z $format ]; then
         echo -n '{"definition" : {"parts" : ' $parts "}}" > definition.json
     else
