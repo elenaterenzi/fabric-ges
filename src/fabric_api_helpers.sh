@@ -379,7 +379,14 @@ update_item_definition() {
     find "$item_folder" -type f | while IFS= read -r file; do
         path=$(basename "$file")
         payloadType="InlineBase64"
-        payload=$(base64 -w 0 "$file")
+        # Deal with Open Darwin's version of base64
+        # which does not support the -w option
+        if [[ "${OSTYPE}" = darwin* ]]; then
+            payload=$(base64 "$file")
+        else
+            payload=$(base64 -w 0 "$file")
+        fi
+        
         file_extension="${path##*.}"
         if [ $file_extension == "ipynb" ]; then
             format="ipynb"
