@@ -1,12 +1,18 @@
 # Simplified Update Item Script – Usage Instructions
 
 ## Overview
-The `simplified_update_item.sh` script is part of our Fabric Git integration workflow. It is designed to:
+The [`simplified_update_item_from_ws.sh`](../src/simplified_update_item_from_ws.sh) script takes care of downloading items from Fabric so that developers can then commit those into source control. The script is designed to:
 - Authenticate with the Fabric API (refreshing the API token if expired).
-- Retrieve a specific workspace by name.
-- Locate an item within that workspace by its name and type.
+- Retrieve the specified workspace by name (provided as an input parameter).
+- Locate an item within that workspace that matches the provided item name and type.
 - Download the item's definition (or metadata if the item type does not support definition retrieval).
 - Save the definition files locally for further processing (e.g., version control, CI/CD).
+
+The [`simplified_update_item_from_git.sh`](../src/simplified_update_item_from_git.sh) script takes care of pushing to Fabric the local changes to item metadata or definitions. The script is designed to:
+- Authenticate with the Fabric API (refreshing the API token if expired).
+- Retrieve the workspace ID based on the provided workspace name.
+- Locate an item within that workspace by looking at the item name and type specified in the item definition files stored in the provided local folder.
+- If there is no matching item in the workspace, the script creates a new item. Otherwise the matching item is updated. Creation or update is achieved by sending via APIs the definition of the Fabric item (e.g., DataPipeline, Environment, Notebook, etc.) from the local filesystem to the specified Microsoft Fabric workspace.
 
 ## Prerequisite Software
 - **Bash**: The script is written in Bash and requires a Unix-like shell.
@@ -22,10 +28,12 @@ The `simplified_update_item.sh` script is part of our Fabric Git integration wor
 ## Assumptions
 
 The sample assumes the following:
-- the script should be executed using a user that has access to the Fabric workspace for which items need to be downloaded, with minimal permissions of `Viewer`.
+- the script should be executed using a user that has access to the Fabric workspace for which items need to be downloaded, with minimal permissions of `Contributor`.
 - The Fabric workspace from which items should be downloaded is assigned to a **running** Fabric capacity. If the capacity is paused the script will fail.
 
-## How to Use the Script
+## How to Use the Scripts
+
+### Before running the scripts
 1. **Ensure Environment Setup:**
    - Verify that all the prerequisite software is installed and available in your system’s PATH.
    - Create a copy of the [`.envtemplate`](../config/.envtemplate) file and rename it to `.env`
@@ -41,17 +49,18 @@ The sample assumes the following:
    ```bash
    az login --use-device-code -t $TENANT_ID
    ```
+### Running the script: `simplified_update_item_from_ws.sh`
 
-2. **Script Parameters:**
+1. **Script Parameters:**
    The script requires four parameters:
-   - **workspaceName**: The display name of the Fabric workspace.
-   - **itemName**: The name of the Fabric item to retrieve.
-   - **itemType**: The type of the Fabric item (e.g., Notebook, DataPipeline) used to disambiguate items with the same name.
+   - **workspace_name**: The display name of the Fabric workspace.
+   - **item_name**: The name of the Fabric item to retrieve.
+   - **item_type**: The type of the Fabric item (e.g., Notebook, DataPipeline) used to disambiguate items with the same name.
    - **folder**: The local destination folder in your filesystem (local repository) where the retrieved item definition (or metadata) will be stored.
 
-3. **Example Usage:**
+1. **Example Usage:**
    ```bash
-   ./src/simplified_update_item.sh "MyWorkspaceName" "MyNotebookName" "Notebook" "./fabric"
+   ./src/simplified_update_item_from_ws.sh "MyWorkspaceName" "MyNotebookName" "Notebook" "./fabric"
    ```
    This command will:
    - Check if the Fabric API token is expired; if so, it will refresh the token and reload environment variables.
@@ -59,8 +68,25 @@ The sample assumes the following:
    - Look for the item `MyNotebookName` of type `Notebook` within that workspace. Review the list of supported [Fabric item types](https://learn.microsoft.com/rest/api/fabric/core/items/list-items?tabs=HTTP#itemtype).
    - Download the item definition and store the resulting files in the `./fabric` folder.
 
-4. **Commit to source control**
+1. **Commit to source control**
    - **Manual Step**: After the item definition is downloaded locally, the files can be committed to the feature branch with the preferred mechanism: for example using VS Code or by executing a `git commit` command.
+
+### Running the script: `simplified_update_item_from_git.sh`
+
+1. **Script Parameters:**
+   The script requires two parameters:
+   - **workspace_name**: The display name of the Fabric workspace.
+   - **item_folder**: The source folder where the item definition files are located.
+
+1. **Example Usage:**
+   ```bash
+   ./src/simplified_update_item_from_git.sh "MyWorkspaceName" "./fabric/MyNotebookName.Notebook"
+   ```
+   This command will:
+   - Check if the Fabric API token is expired; if so, it will refresh the token and reload environment variables.
+   - Retrieve the workspace ID corresponding to `MyWorkspaceName`.
+   - Verify that the folder `./fabric/MyNotebookName.Notebook` contains required item metadata and/or definition files.
+   - Create or Update the corresponding Fabric item in the `MyWorkspaceName` workspace, by using metadata and definition files found in the `./fabric/MyNotebookName.Notebook` folder.
 
 ## Troubleshooting
 - If the script cannot find the workspace or item, double-check the names and types.

@@ -21,46 +21,6 @@ get_error_response() {
     echo "$1"
 }
 
-# get_or_create_workspace_id() {
-#     local requestHeader=$1
-#     local contentType=$2
-#     local baseUrl=$3
-#     local workspaceName=$4
-#     local capacityId=$5
-
-#     workspaces=$(curl -s -H "$requestHeader" -H "Content-Type: $contentType" "$baseUrl/workspaces")
-#     workspace=$(echo "$workspaces" | jq -r ".value[] | select(.displayName == \"$workspaceName\")")
-
-#     if [ -z "$workspace" ]; then
-#         echo "A workspace with the requested name $workspaceName was not found, creating new workspace."
-#         workspace=$(curl -s -X POST -H "$requestHeader" -H "Content-Type: $contentType" -d "{\"displayName\":\"$workspaceName\",\"capacityId\":\"$capacityId\"}" "$baseUrl/workspaces")
-#         echo "Workspace $workspaceName with id $(echo "$workspace" | jq -r '.id') was created."
-#         echo $(echo "$workspace" | jq -r '.id')
-#     else
-#         echo "Workspace $workspaceName with id $(echo "$workspace" | jq -r '.id') was found."
-#         echo $(echo "$workspace" | jq -r '.id')
-#     fi
-# }
-
-create_workspace_item() {
-    local baseUrl=$1
-    local workspace_id=$2
-    local requestHeader=$3
-    local contentType=$4
-    local itemMetadata=$5
-    local itemDefinition=$6
-
-    if [ -n "$itemDefinition" ]; then
-        body=$(jq -n --arg displayName "$(echo "$itemMetadata" | jq -r '.displayName')" --arg description "$(echo "$itemMetadata" | jq -r '.description')" --arg type "$(echo "$itemMetadata" | jq -r '.type')" --argjson definition "$(echo "$itemDefinition" | jq '.definition')" '{displayName: $displayName, description: $description, type: $type, definition: $definition}')
-    else
-        body=$(jq -n --arg displayName "$(echo "$itemMetadata" | jq -r '.displayName')" --arg description "$(echo "$itemMetadata" | jq -r '.description')" --arg type "$(echo "$itemMetadata" | jq -r '.type')" '{displayName: $displayName, description: $description, type: $type}')
-    fi
-
-    item=$(curl -s -X POST -H "$requestHeader" -H "Content-Type: $contentType" -d "$body" "$baseUrl/workspaces/$workspace_id/items")
-    echo "Sensitivity Labels won't make future item definition updates possible. Please update Sensitivity Labels for created items before re-running this script."
-    echo "$item"
-}
-
 update_workspace_item_definition() {
     local baseUrl=$1
     local workspace_id=$2
