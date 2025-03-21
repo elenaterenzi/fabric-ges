@@ -381,8 +381,8 @@ update_item_definition() {
         payloadType="InlineBase64"
         # Deal with Open Darwin's version of base64
         # which does not support the -w option
-        if [[ "${OSTYPE}" = darwin* ]]; then
-            payload=$(base64 "$file")
+        if [[ "$(uname)" == "Darwin" ]]; then # Mac OSX
+            payload=$(base64 < "$file" | tr -d '\n' | tr -d '\r')  
         else
             payload=$(base64 -w 0 "$file")
         fi
